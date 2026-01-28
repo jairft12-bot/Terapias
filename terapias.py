@@ -13,7 +13,18 @@ import ssl
 # Configuración de página
 st.set_page_config(page_title="Visor de Terapias", layout="wide")
 
-st.title("📊 Visor de Terapias ")
+# --- CSS PARA OCULTAR MENÚS (MODO PRIVADO) ---
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            .stDeployButton {display:none;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+st.title("📊 Visor de Terapias")
 
 # URL PROPORCIONADA POR EL USUARIO (Nueva Versión)
 # Appending &download=1 to force binary download from the sharing link
@@ -581,36 +592,11 @@ if df is not None:
 
     with tab_main:
         st.caption(f"Fuente de datos: {data_source}")
-        st.info("💡 Puedes editar celdas aquí. Para que se reflejen en Excel Online, pulsa el botón 'Guardar' al final.")
+        st.info("� Modo Lectura: La edición está desactivada en la versión pública.")
         
-        # Editor de datos
-        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key="editor_terapias")
-        
-        st.divider()
-        st.divider()
-        st.subheader("💾 Guardar tus Cambios")
-        st.warning("⚠️ IMPORTANTE: Como el archivo original es de otra persona (Excel Online), esta App NO puede sobrescribirlo directamente.")
-        st.info("💡 Solución: Descarga aquí tu versión editada y cópiala/pégala en el Excel original manualmente.")
-        
-        # Convertir DF editado a Excel
-        buffer_edit = io.BytesIO()
-        with pd.ExcelWriter(buffer_edit, engine='xlsxwriter') as writer:
-             edited_df.to_excel(writer, sheet_name=SHEET_NAME, index=False)
-             
-             # Auto-ajustar
-             worksheet = writer.sheets[SHEET_NAME]
-             worksheet.set_column('A:Z', 15)
-             
-        col_save, col_info = st.columns([1, 2])
-        
-        with col_save:
-             st.download_button(
-                 label="📥 DESCARGAR CAMBIOS (.xlsx)",
-                 data=buffer_edit.getvalue(),
-                 file_name="terapias_modificadas.xlsx",
-                 mime="application/vnd.ms-excel",
-                 type="primary"
-             )
+        # Tabla de solo lectura
+        st.dataframe(df, use_container_width=True)
+
     
     with tab_downloads:
         st.header("📥 Descarga de Reporte Detallado")
