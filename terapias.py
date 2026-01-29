@@ -195,41 +195,56 @@ filt_month = "Todos"
 filt_year = "Todos"
 
 if df is not None:
-    # 1. Función para encontrar la "Fecha Objetivo" de cada fila
+    # 1. Lógica de Fechas basada en COLUMNA I (Index 8)
+    def parse_spanish_date(text):
+        if not isinstance(text, str):
+            return None
+        text = text.lower().strip()
+        
+        # Mapeo de meses español
+        meses = {
+            'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
+            'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
+        }
+        
+        try:
+            # Formatos esperados: "31-oct", "31-oct-2023", "31/10/2023"
+            target_month = None
+            target_year = datetime.datetime.now().year # Default current year if missing
+            
+            # Buscar texto de mes
+            for mes_txt, mes_num in meses.items():
+                if mes_txt in text:
+                    target_month = mes_num
+                    break
+            
+            if target_month:
+                # Intentar sacar año si existe
+                # (Simple heuristic: find 4 digits)
+                import re
+                years = re.findall(r'\d{4}', text)
+                if years:
+                    target_year = int(years[0])
+                
+                # Devolvemos fecha ficticia paso 1 del mes para agrupar
+                return datetime.datetime(target_year, target_month, 1)
+            
+            # Si no es texto, intentar parser standard
+            return pd.to_datetime(text)
+        except:
+            return None
+
     def get_target_date(row):
         try:
-            # Buscar N (Cantidad) - Intentar varias columnas de Cantidad
-            c_cant = None
-            if 'CANT.' in row.index: c_cant = row['CANT.']
-            elif 'CANT' in row.index: c_cant = row['CANT']
+            # USAR COLUMNA I (Index 8)
+            val = row.iloc[8]
             
-            if pd.isna(c_cant): return None
-            
-            n_target = int(float(c_cant))
-            if n_target <= 0: return None
-            
-            # Buscar fechas (Columnas 14 en adelante)
-            # Solo valores no nulos
-            fechas_raw = row.iloc[14:].dropna() # Serie limpia
-            
-            # Ir contando fechas validas
-            valid_dates = []
-            for val in fechas_raw:
-                 # Check rapido si parece fecha
-                 if isinstance(val, (datetime.datetime, pd.Timestamp)):
-                     valid_dates.append(val)
-                 elif isinstance(val, str) and len(val) > 5:
-                     try:
-                         d = pd.to_datetime(val)
-                         valid_dates.append(d)
-                     except:
-                         pass
-            
-            # Seleccionar la N-ésima fecha
-            if len(valid_dates) >= n_target:
-                return valid_dates[n_target - 1] # Index 0-based
+            if isinstance(val, (datetime.datetime, pd.Timestamp)):
+                return val
+            elif isinstance(val, str):
+                return parse_spanish_date(val)
             else:
-                return None # Aún no completa las sesiones
+                return None
         except:
             return None
 
@@ -280,6 +295,8 @@ if df is not None:
              if filt_month_name != "Todos":
                  rev_map = {v:k for k,v in month_map.items()}
                  filt_month_num = rev_map[filt_month_name]
+
+
 
         # 3. CONTROLES LOCALES (Discretos abajo)
         if IS_LOCAL:
