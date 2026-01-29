@@ -266,13 +266,26 @@ if df is not None:
                      total_programado_kpi = pd.to_numeric(df[col_cant], errors='coerce').fillna(0).sum()
                 
                 # CÁLCULO DE EJECUTADAS
-                total_ejecutadas_kpi = total_programado_kpi - total_sesiones_saldo
+                # PRIORIDAD: Usar columna explícita 'SESIONES REALIZADAS' (si existe)
+                col_realizadas = None
+                for c in df.columns:
+                    if "REALIZADAS" in str(c) or "EJECUTADAS" in str(c):
+                        col_realizadas = c
+                        break
+                
+                if col_realizadas:
+                     total_ejecutadas_kpi = pd.to_numeric(df[col_realizadas], errors='coerce').fillna(0).sum()
+                else:
+                     # Fallback: Calculado
+                     sum_pend_total = s_pend_col.sum()
+                     total_ejecutadas_kpi = total_programado_kpi - sum_pend_total
+                
                 tasa_ejecucion = (total_ejecutadas_kpi / total_programado_kpi * 100) if total_programado_kpi > 0 else 0
                 
                 kpi5.metric(
                     "Sesiones Realizadas",
                     f"{tasa_ejecucion:.1f}%",
-                    f"{total_ejecutadas_kpi} Ejecutadas",
+                    f"{int(total_ejecutadas_kpi)} Ejecutadas",
                     delta_color="normal" # Verde por defecto si es positivo
                 )
                 
@@ -341,13 +354,20 @@ if df is not None:
                  s_p = pd.to_numeric(df['PENDIENTES'], errors='coerce').fillna(0)
                  tot_pend_s = s_p[s_p > 0].sum()
             
-            tot_ejec_s = tot_prog_s - tot_pend_s
+            # Lógica del Donut (Corregida para usar Columna Directa)
+            if col_realizadas:
+                 tot_ejec_s = pd.to_numeric(df[col_realizadas], errors='coerce').fillna(0).sum()
+            else:
+                 # Fallback
+                 sum_p = pd.to_numeric(df['PENDIENTES'], errors='coerce').fillna(0).sum() if 'PENDIENTES' in df.columns else 0
+                 tot_ejec_s = tot_prog_s - sum_p
+                 
             pct_av = (tot_ejec_s / tot_prog_s * 100) if tot_prog_s > 0 else 0
             
             # Gráfico Donut Compacto
             source_bal = pd.DataFrame({
                 "Estado": ["Ejecutadas", "Pendientes"],
-                "Valor": [tot_ejec_s, tot_pend_s],
+                "Valor": [tot_ejec_s, tot_pend_s], # tot_pend_s sigue siendo "Pendientes Reales" (Solo positivos) para gráfica
                 "Color": ["#2E8B57", "#E0E0E0"]
             })
             
