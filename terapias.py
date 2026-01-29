@@ -395,11 +395,15 @@ if df is not None:
         if filter_active:
             # Mostramos el total de FILAS que caen en ese mes de término
             total_filas = len(df_clean)
-            label_kpi2 = f"Agendamiento {filt_month_name}" if filt_month_name != "Todos" else "Agendamiento Año"
+            
+            # Nombre del mes o año
+            suffix = filt_month_name if filt_month_name != "Todos" else filt_year
+            label_kpi2 = f"Ordenamiento de {suffix}"
+            
             kpi2.metric(label_kpi2, total_filas, help="Pacientes agendados en este periodo (Según Columna I).")
         else:
             total_filas = len(df_clean)
-            kpi2.metric("Terapias Ordenadas", total_filas)
+            kpi2.metric("Ordenamiento", total_filas)
 
 
         # KPI 3, 4, 5: Desglose de Estados - USANDO DF_CLEAN
