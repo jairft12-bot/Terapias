@@ -391,11 +391,12 @@ if df is not None:
         kpi1.metric("Pacientes", total_pacientes)
         
         # KPI 2: Total Terapias / Sesiones
+        # KPI 2: Total Terapias / Sesiones
         if filter_active:
             # Mostramos el total de FILAS que caen en ese mes de término
             total_filas = len(df_clean)
-            label_kpi2 = f"Cierres {filt_month_name}" if filt_month_name != "Todos" else "Cierres Año"
-            kpi2.metric(label_kpi2, total_filas, help="Pacientes cuya última sesión (según Cantidad) cae en este periodo.")
+            label_kpi2 = f"Agendamiento {filt_month_name}" if filt_month_name != "Todos" else "Agendamiento Año"
+            kpi2.metric(label_kpi2, total_filas, help="Pacientes agendados en este periodo (Según Columna I).")
         else:
             total_filas = len(df_clean)
             kpi2.metric("Terapias Ordenadas", total_filas)
@@ -680,8 +681,8 @@ if df is not None:
         )
         
         if paciente_seleccionado:
-            # 1. Encontrar todas las filas de este paciente
-            p_rows = df[df['PACIENTES'] == paciente_seleccionado].copy()
+            # 1. Encontrar todas las filas de este paciente (USANDO df_clean para respetar filtros)
+            p_rows = df_clean[df_clean['PACIENTES'] == paciente_seleccionado].copy()
             
             # 2. Construir lista de opciones únicas (Combina Especialidad + Fecha OM)
             opciones_tratamiento = []
@@ -837,8 +838,8 @@ if df is not None:
         st.caption(f"Fuente de datos: {data_source}")
         st.info("� Modo Lectura: La edición está desactivada en la versión pública.")
         
-        # Tabla de solo lectura
-        st.dataframe(df, use_container_width=True)
+        # Tabla de solo lectura (Filtrada)
+        st.dataframe(df_clean, use_container_width=True)
 
     
     with tab_downloads:
