@@ -197,15 +197,27 @@ filt_year = "Todos"
 if df is not None:
     # 1. Lógica de Fechas basada en COLUMNA I (Index 8)
     def parse_spanish_date(text):
-        if not isinstance(text, str):
-            return None
-        text = text.lower().strip()
-        
-        # Mapeo de meses español
-        meses = {
-            'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
-            'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
-        }
+        try:
+            # CASO 0: Es ya un datetime/timestamp (Excel lo parseó solo)
+            if isinstance(text, (datetime.datetime, pd.Timestamp)):
+                return text
+                
+            # CASO 1: Numero Entero (Excel Serial Date)
+            if isinstance(text, (int, float)):
+                # Excel start: 1899-12-30 usually
+                return pd.to_datetime(text, unit='D', origin='1899-12-30')
+
+            if not isinstance(text, str):
+                return None
+            
+            text = text.lower().strip()
+            
+            # Mapeo de meses español
+            meses = {
+                'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
+                'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
+            }
+            
             # CASO 2: Texto tipo "31-oct" (Regex estricto para evitar 'ene' en 'pendiente')
             target_month = None
             target_year = datetime.datetime.now().year # Default curr year
@@ -215,9 +227,6 @@ if df is not None:
             # Buscar texto de mes con límites de palabra o separadores
             for mes_txt, mes_num in meses.items():
                 # Regex: que 'ene' esté precedeido de inicio/espacio/-// y seguido de fin/espacio/-//
-                # pattern = r'(?:^|[\s\-\/])' + mes_txt + r'(?:$|[\s\-\/])' 
-                # Simplificado: \b es boundary (pero ojo con guiones). 
-                # Mejor explicit:
                 if re.search(r'(?:^|[\s\-\/])' + mes_txt + r'(?:$|[\s\-\/])', text):
                     target_month = mes_num
                     break
@@ -230,8 +239,9 @@ if df is not None:
                 # Devolvemos fecha ficticia
                 return datetime.datetime(target_year, target_month, 1)
             
-            # Si no es texto, intentar parser standard
-            return pd.to_datetime(text)
+            # CASO 3: Parser Standard (dd/mm/yyyy etc)
+            return pd.to_datetime(text, dayfirst=True)
+            
         except:
             return None
 
