@@ -195,20 +195,29 @@ filt_month = "Todos"
 filt_year = "Todos"
 
 if df is not None:
-    # 1. Lógica de Fechas basada en COLUMNA I (Index 8)
     def parse_spanish_date(text):
-        if not isinstance(text, str):
-            return None
-        text = text.lower().strip()
-        
-        # Mapeo de meses español
-        meses = {
-            'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
-            'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
-        }
-        
         try:
-            # Formatos esperados: "31-oct", "31-oct-2023", "31/10/2023"
+            # CASO 0: Es ya un datetime/timestamp (Excel lo parseó solo)
+            if isinstance(text, (datetime.datetime, pd.Timestamp)):
+                return text
+                
+            # CASO 1: Numero Entero (Excel Serial Date)
+            if isinstance(text, (int, float)):
+                # Excel start: 1899-12-30 usually
+                return pd.to_datetime(text, unit='D', origin='1899-12-30')
+
+            if not isinstance(text, str):
+                return None
+            
+            text = text.lower().strip()
+            # Mapeo de meses español
+            meses = {
+                'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
+                'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
+            }
+            
+            # CASO 2: Texto tipo "31-oct"
+             # Formatos esperados: "31-oct", "31-oct-2023", "31/10/2023"
             target_month = None
             target_year = datetime.datetime.now().year # Default current year if missing
             
@@ -220,17 +229,16 @@ if df is not None:
             
             if target_month:
                 # Intentar sacar año si existe
-                # (Simple heuristic: find 4 digits)
                 import re
                 years = re.findall(r'\d{4}', text)
                 if years:
                     target_year = int(years[0])
-                
-                # Devolvemos fecha ficticia paso 1 del mes para agrupar
+                # Devolvemos fecha ficticia
                 return datetime.datetime(target_year, target_month, 1)
             
-            # Si no es texto, intentar parser standard
-            return pd.to_datetime(text)
+            # CASO 3: Parser Standard (dd/mm/yyyy etc)
+            return pd.to_datetime(text, dayfirst=True)
+            
         except:
             return None
 
@@ -238,13 +246,7 @@ if df is not None:
         try:
             # USAR COLUMNA I (Index 8)
             val = row.iloc[8]
-            
-            if isinstance(val, (datetime.datetime, pd.Timestamp)):
-                return val
-            elif isinstance(val, str):
-                return parse_spanish_date(val)
-            else:
-                return None
+            return parse_spanish_date(val)
         except:
             return None
 
@@ -374,6 +376,11 @@ if df is not None:
         df_clean = df_base.copy() # Sin filtro de fecha
 
     with tab_dashboard:
+        # --- DEBUG TEMPORAL (Borrar luego) ---
+        st.error(f"🛠️ DEBUG FILTER: Mes={filt_month_name} | Active={filter_active} | Rows Clean={len(df_clean)} | Rows Base={len(df_base)}")
+        st.write("Muestra FECHA_CLAVE:", df_base['FECHA_CLAVE'].head(5))
+        st.write("Muestra Columna I (Raw):", df_base.iloc[:, 8].head(5))
+
         st.caption(f"Visualizando datos de: {data_source} | Actualizado: {hora_lectura}")
         
         # --- 1. KPIS (TARJETAS) ---
