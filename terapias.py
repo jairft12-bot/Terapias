@@ -17,12 +17,65 @@ st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sideba
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
-            header {display: none !important;}
             footer {display: none !important;}
             .stDeployButton {display: none !important;}
-            [data-testid="stToolbar"] {display: none !important;}
-            [data-testid="stDecoration"] {display: none !important;}
-            [data-testid="stHeader"] {display: none !important;}
+            
+            /* RESET: Don't hide these, they kill the sidebar toggle */
+            /* [data-testid="stToolbar"] {display: none !important;} */
+            /* [data-testid="stDecoration"] {display: none !important;} */
+            /* header {display: none !important;}  <-- ESTO OCULTABA EL SIDEBAR */
+            /* [data-testid="stHeader"] {display: none !important;} <-- ESTO TAMBIEN */
+            
+            /* Custom Scrollbar for Sidebar */
+            [data-testid="stSidebar"] ::-webkit-scrollbar {
+                display: block !important;
+                width: 12px !important;
+                height: 12px !important;
+            }
+            [data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
+                background-color: #888 !important; 
+                border-radius: 6px !important;
+            }
+            [data-testid="stSidebar"] ::-webkit-scrollbar-track {
+                background: #f1f1f1 !important; 
+            }
+            
+            /* sidebar toggle button styling */
+            [data-testid="stSidebarCollapsedControl"] {
+                display: block !important;
+                visibility: visible !important;
+                color: #000 !important;
+                background-color: rgba(255, 255, 255, 0.9) !important;
+                border: 1px solid #ddd !important;
+                border-radius: 50% !important;
+                z-index: 1000000 !important;
+                
+                /* Position fallback if it's lost in the header */
+                /* position: fixed !important; */
+                /* top: 60px !important; */
+                /* left: 10px !important; */
+            }
+            
+            /* Ensure the toggle icon inside is visible */
+            [data-testid="stSidebarCollapsedControl"] svg {
+                fill: #000 !important;
+                stroke: #000 !important;
+            }
+
+            /* --- SIDEBAR RESCUE --- */
+            /* Keep strict scrolling enabled */
+            section[data-testid="stSidebar"] > div {
+                flex-shrink: 0 !important;
+                height: 100vh !important;
+                overflow-y: auto !important; 
+                z-index: 999999 !important;
+            }
+
+            /* Ensure buttons inside sidebar are seen */
+            [data-testid="stSidebar"] button {
+                display: flex !important;
+                visibility: visible !important;
+            }
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
