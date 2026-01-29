@@ -84,9 +84,9 @@ st.title("📊 Visor de Terapias")
 
 # URL PROPORCIONADA POR EL USUARIO (Nueva Versión)
 # Appending &download=1 to force binary download from the sharing link
-DATA_URL = "https://viva1aips-my.sharepoint.com/:x:/g/personal/gestorprocesos_viva1a_com_pe/IQBVCUVP2PrvRowbT35kUsq-AbGX0ndr7O2WukwjN-ucA0w?e=cPdRMs&download=1"
+DATA_URL ="https://viva1aips-my.sharepoint.com/:x:/g/personal/gsiguenas_viva1a_com_pe/IQDGPInn2jcyT6oJdUfzmJE8AdUWEyt9EHy9QBN2KqK8jYg?e=MyYJSv&download=1"
 SHEET_NAME = "Seguimiento de terapias "
-LOCAL_PATH = "data.xlsx"
+
 
 
 
@@ -176,44 +176,130 @@ if 'last_refresh' not in st.session_state:
     st.session_state.last_refresh = time.time()
 if 'df_cache' not in st.session_state:
     # Initial load attempt
-    st.session_state.df_cache, _, _, _ = load_data(st.session_state.last_refresh)
+    st.session_state.df_cache, st.session_state.error, st.session_state.hora_lectura, st.session_state.data_source = load_data(st.session_state.last_refresh)
 
-# Sidebar
-with st.sidebar:
-    st.header("⚙️ Configuración")
-    
-    # BOTÓN RECARGAR (Visible siempre, pero destacado)
-    if st.button("🔄 RECARGAR AHORA", use_container_width=True):
-        st.cache_data.clear()
-        st.session_state.df_cache, error, ts, source = load_data(time.time())
-        st.session_state.last_refresh = time.time()
-        st.rerun()
-        
-    st.divider()
-    
-    # CONTROLES SOLO VISIBLES EN LOCAL
-    enable_autorefresh = False # Default en nube: No auto-refresh agresivo UI
-    if IS_LOCAL:
-        st.caption("🛠️ Modo Local Activo")
-        # Auto-refresh logic
-        enable_autorefresh = st.checkbox("✅ Auto-escaneo activo", value=True)
-        if enable_autorefresh:
-            refresh_interval = st.select_slider(
-                "Frecuencia (segundos):",
-                options=[90, 120, 180, 240, 300, 600],
-                value=90
-            )
-            # Solo ejecutamos el sleep/rerun si está habilitado
-            if enable_autorefresh:
-                 # Pequeña lógica de rerun (simplificada para no bloquear)
-                 pass
+   
+
 
 # Carga de datos real
-df, error, hora_lectura, data_source = load_data(st.session_state.last_refresh)
+# Recuperar de session_state para usar en el resto del script
+df = st.session_state.df_cache
+error = st.session_state.error
+hora_lectura = st.session_state.hora_lectura
+data_source = st.session_state.data_source
+
+# --- LÓGICA DE CLASIFICACIÓN TEMPORAL (NUEVO) ---
+# Clasificar cada fila según la fecha de su N-ésima sesión (donde N = CANT).
+
+filt_month = "Todos"
+filt_year = "Todos"
+
+if df is not None:
+    # 1. Función para encontrar la "Fecha Objetivo" de cada fila
+    def get_target_date(row):
+        try:
+            # Buscar N (Cantidad) - Intentar varias columnas de Cantidad
+            c_cant = None
+            if 'CANT.' in row.index: c_cant = row['CANT.']
+            elif 'CANT' in row.index: c_cant = row['CANT']
+            
+            if pd.isna(c_cant): return None
+            
+            n_target = int(float(c_cant))
+            if n_target <= 0: return None
+            
+            # Buscar fechas (Columnas 14 en adelante)
+            # Solo valores no nulos
+            fechas_raw = row.iloc[14:].dropna() # Serie limpia
+            
+            # Ir contando fechas validas
+            valid_dates = []
+            for val in fechas_raw:
+                 # Check rapido si parece fecha
+                 if isinstance(val, (datetime.datetime, pd.Timestamp)):
+                     valid_dates.append(val)
+                 elif isinstance(val, str) and len(val) > 5:
+                     try:
+                         d = pd.to_datetime(val)
+                         valid_dates.append(d)
+                     except:
+                         pass
+            
+            # Seleccionar la N-ésima fecha
+            if len(valid_dates) >= n_target:
+                return valid_dates[n_target - 1] # Index 0-based
+            else:
+                return None # Aún no completa las sesiones
+        except:
+            return None
+
+    # Aplicar logica (vectorizada row-wise)
+    df['FECHA_CLAVE'] = df.apply(get_target_date, axis=1)
+    
+    # 2. Construir lista de Años/Meses DISPONIBLES en 'FECHA_CLAVE'
+    fechas_disponibles = df['FECHA_CLAVE'].dropna().unique()
+    
+    if len(fechas_disponibles) > 0:
+        years = sorted(list(set([d.year for d in fechas_disponibles])))
+        months = sorted(list(set([d.month for d in fechas_disponibles])))
+        
+        month_map = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
+                     7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+        
+        opciones_mes = ["Todos"] + [month_map[m] for m in months]
+        opciones_anio = ["Todos"] + [str(y) for y in years]
+    else:
+        opciones_mes = ["Todos"]
+        opciones_anio = ["Todos"]
+
+    # --- SIDEBAR LAYOUT ---
+    with st.sidebar:
+        # 1. BOTÓN RECARGAR (Minimalista, arriba)
+        # Usamos columnas para centrarlo o hacerlo menos ancho si se desea
+        # El usuario pidió "mas chico" y "sin titulo"
+        col_reload, col_blank = st.columns([1, 0.01]) # Truco para ajustar ancho si fuera necesario, o simple button
+        if st.button("↻ Recargar", help="Forzar actualización de datos"):
+            st.session_state.df_cache, error, ts, source = load_data(time.time())
+            st.session_state.last_refresh = time.time()
+            st.rerun()
+            
+        st.divider()
+
+        # 2. FILTRO DE TIEMPO
+        st.header("📅 Filtro de Tiempo")
+        st.caption("Filtra por fecha de término (CANT)")
+        
+        filt_year = st.selectbox("Año:", opciones_anio, index=0)
+        filt_month_name = st.selectbox("Mes:", opciones_mes, index=0)
+        
+        filt_month_num = None
+        filter_active = False
+        
+        if filt_year != "Todos" or filt_month_name != "Todos":
+             filter_active = True
+             if filt_month_name != "Todos":
+                 rev_map = {v:k for k,v in month_map.items()}
+                 filt_month_num = rev_map[filt_month_name]
+
+        # 3. CONTROLES LOCALES (Discretos abajo)
+        if IS_LOCAL:
+            st.divider()
+            st.caption("🛠️ Modo Local")
+            enable_autorefresh = st.checkbox("✅ Auto-escaneo", value=True)
+            if enable_autorefresh:
+                refresh_interval = st.select_slider(
+                    "Segundos:",
+                    options=[90, 120, 180, 240, 300, 600],
+                    value=90
+                )
+
+
+            
+
 
 # Área Principal - Indicadores
 # Solo mostramos la fuente de datos si estamos en local o si hay error
-if error or IS_LOCAL:
+if  IS_LOCAL:
     col1, col2 = st.columns([3, 1])
     with col1:
         if error:
@@ -228,6 +314,10 @@ if error or IS_LOCAL:
         
     with col2:
         st.write(f"🕒 **Actualizado:** {hora_lectura}")
+df = st.session_state.df_cache
+error = st.session_state.error
+hora_lectura = st.session_state.hora_lectura
+data_source = st.session_state.data_source
 
 if df is not None:
     # Definir 4 pestañas explícitamente para evitar errores
@@ -238,38 +328,71 @@ if df is not None:
         "📥 Descargas"
     ])
     
+    # --- FILTRADO STRICTO (GLOBAL) ---
+    # Volvemos al filtrado estricto.
+    if 'PACIENTES' in df.columns:
+        df_base = df[df['PACIENTES'].notna() & (df['PACIENTES'].astype(str).str.strip() != '')].copy()
+    else:
+        df_base = df.copy()
+
+    # --- APLICAR FILTRO DE FECHAS AL DF_CLEAN ---
+    if filter_active:
+        # Filtrar usando FECHA_CLAVE
+        # Asegurar que df_base tenga esa columna
+        if 'FECHA_CLAVE' not in df_base.columns:
+            df_base['FECHA_CLAVE'] = df.loc[df_base.index, 'FECHA_CLAVE']
+            
+        # Aplicar condiciones
+        mask = pd.Series([True]*len(df_base), index=df_base.index)
+        
+        if filt_year != "Todos":
+             mask = mask & (df_base['FECHA_CLAVE'].apply(lambda x: str(x.year) if pd.notna(x) else '') == filt_year)
+             
+        if filt_month_name != "Todos":
+             mask = mask & (df_base['FECHA_CLAVE'].apply(lambda x: x.month if pd.notna(x) else -1) == filt_month_num)
+             
+        # Guardar el filtrado final
+        df_clean = df_base[mask].copy()
+    else:
+        df_clean = df_base.copy() # Sin filtro de fecha
+
     with tab_dashboard:
         st.caption(f"Visualizando datos de: {data_source} | Actualizado: {hora_lectura}")
         
         # --- 1. KPIS (TARJETAS) ---
         kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
         
-        # KPI 1: Total Pacientes (Únicos)
-        # Intentamos buscar la columna DNI de forma segura
-        col_dni = 'DNI' if 'DNI' in df.columns else 'DNI '
-        if col_dni not in df.columns:
-             # Fallback: primera columna? No, mejor no arriesgar
-             st.error(f"No encuentro la columna DNI. Columnas: {list(df.columns)}")
-             total_pacientes = 0
+        # KPI 1: Total Pacientes
+        col_dni = 'DNI' if 'DNI' in df_clean.columns else 'DNI ' # Space matters?
+        if col_dni not in df_clean.columns and 'DNI' in df_clean.columns: col_dni = 'DNI'
+            
+        if col_dni in df_clean.columns:
+             total_pacientes = df_clean[col_dni].nunique()
         else:
-             total_pacientes = df[col_dni].nunique()
+             total_pacientes = len(df_clean) # Fallback count rows
              
-        kpi1.metric("Pacientes Únicos", total_pacientes)
+        kpi1.metric("Pacientes", total_pacientes)
         
-        # KPI Extra: Total Registros (Filas válidas)
-        # Contamos solo si la columna PACIENTES tiene dato
-        # Esto filtra filas vacías del final de excel
-        total_filas = df['PACIENTES'].dropna().count() if 'PACIENTES' in df.columns else len(df)
-        kpi2.metric("Terapias Ordenadas", total_filas, help="Número de terapias registradas (excluye filas vacías)")
+        # KPI 2: Total Terapias / Sesiones
+        if filter_active:
+            # Mostramos el total de FILAS que caen en ese mes de término
+            total_filas = len(df_clean)
+            label_kpi2 = f"Cierres {filt_month_name}" if filt_month_name != "Todos" else "Cierres Año"
+            kpi2.metric(label_kpi2, total_filas, help="Pacientes cuya última sesión (según Cantidad) cae en este periodo.")
+        else:
+            total_filas = len(df_clean)
+            kpi2.metric("Terapias Ordenadas", total_filas)
 
-        # KPI 3, 4, 5: Desglose de Estados
+
+        # KPI 3, 4, 5: Desglose de Estados - USANDO DF_CLEAN
         try:
-            df_kpi_valid = df[df['PACIENTES'].notna() & (df['PACIENTES'] != '')]
+            # Ya tenemos df_clean
+            df_kpi_valid = df_clean
             total_validas = len(df_kpi_valid)
             
             # Buscar columna ESTADO flexiblemente
             col_estado_found = None
-            for c in df.columns:
+            for c in df_clean.columns:
                 if "ESTADO" in str(c).upper().strip():
                     col_estado_found = c
                     break
@@ -284,7 +407,7 @@ if df is not None:
                 tasa_gestion = (count_gestion / total_validas * 100) if total_validas > 0 else 0
                 
                 kpi3.metric(
-                    "Gestión Realizada", 
+                    "Gestión De Agen Realizada", 
                     f"{tasa_gestion:.1f}%", 
                     f"{count_gestion} Fin/Proceso"
                 )
@@ -302,36 +425,39 @@ if df is not None:
                 )
                 
                 # --- KPI 5: Sesiones Realizadas (Avance) ---
-                # Solicitud: Primero % y abajo el número total
+                # Solicitud: Programado (K), Realizado (L), Pendientes (M)
+                # Usamos df_clean para asegurar que no sumamos filas vacías
                 
                 total_sesiones_saldo = 0
                 count_negativos = 0
                 
-                if 'PENDIENTES' in df.columns:
-                     s_pend_col = pd.to_numeric(df['PENDIENTES'], errors='coerce').fillna(0)
-                     # Saldo pendiente real (positivo)
+                # Columna Pendientes (M usualmente)
+                if 'PENDIENTES' in df_clean.columns:
+                     s_pend_col = pd.to_numeric(df_clean['PENDIENTES'], errors='coerce').fillna(0)
                      total_sesiones_saldo = int(s_pend_col[s_pend_col > 0].sum())
                      count_negativos = int(s_pend_col[s_pend_col < 0].count())
+                else:
+                    s_pend_col = pd.Series([0]*len(df_clean))
                 
-                col_cant = 'CANT.' if 'CANT.' in df.columns else 'CANT'
+                # Columna Programado/Cant (K usualmente)
+                col_cant = 'CANT.' if 'CANT.' in df_clean.columns else 'CANT'
                 total_programado_kpi = 0
-                if col_cant in df.columns:
-                     total_programado_kpi = pd.to_numeric(df[col_cant], errors='coerce').fillna(0).sum()
+                if col_cant in df_clean.columns:
+                     total_programado_kpi = pd.to_numeric(df_clean[col_cant], errors='coerce').fillna(0).sum()
                 
-                # CÁLCULO DE EJECUTADAS
-                # PRIORIDAD: Usar columna explícita 'SESIONES REALIZADAS' (si existe)
+                # Columna Realizadas/Ejecutadas (L usualmente)
                 col_realizadas = None
-                for c in df.columns:
+                for c in df_clean.columns:
                     if "REALIZADAS" in str(c) or "EJECUTADAS" in str(c):
                         col_realizadas = c
                         break
                 
+                total_ejecutadas_kpi = 0
                 if col_realizadas:
-                     total_ejecutadas_kpi = pd.to_numeric(df[col_realizadas], errors='coerce').fillna(0).sum()
+                     total_ejecutadas_kpi = pd.to_numeric(df_clean[col_realizadas], errors='coerce').fillna(0).sum()
                 else:
-                     # Fallback: Calculado
-                     sum_pend_total = s_pend_col.sum()
-                     total_ejecutadas_kpi = total_programado_kpi - sum_pend_total
+                     # Fallback seguro: Programado - Pendientes
+                     total_ejecutadas_kpi = total_programado_kpi - s_pend_col.sum()
                 
                 tasa_ejecucion = (total_ejecutadas_kpi / total_programado_kpi * 100) if total_programado_kpi > 0 else 0
                 
@@ -361,12 +487,12 @@ if df is not None:
         
         with c1:
             st.subheader("📊 Terapias Solicitadas")
-            if 'ESPECIALIDAD' in df.columns:
-                # 1. Preparar datos limpios
-                df_sp = df[df['ESPECIALIDAD'].notna() & (df['ESPECIALIDAD'] != '')]
+            if 'ESPECIALIDAD' in df_clean.columns:
+                # 1. Preparar datos limpios (sobre df_clean)
+                df_sp = df_clean[df_clean['ESPECIALIDAD'].notna() & (df_clean['ESPECIALIDAD'] != '')]
                 
                 # 2. Calcular estadisticas
-                col_id = 'DNI' if 'DNI' in df.columns else 'PACIENTES'
+                col_id = 'DNI' if 'DNI' in df_clean.columns else 'PACIENTES'
                 sp_stats = df_sp.groupby('ESPECIALIDAD').agg(
                     Total_Terapias=('ESPECIALIDAD', 'count'),
                     Pacientes_Unicos=(col_id, 'nunique')
@@ -387,7 +513,7 @@ if df is not None:
                 
                 st.altair_chart((bars + text).properties(height=350), use_container_width=True)
                 
-                missing_sp = df[df['PACIENTES'].notna() & (df['ESPECIALIDAD'].isna() | (df['ESPECIALIDAD'] == ''))].shape[0]
+                missing_sp = df_clean[df_clean['ESPECIALIDAD'].isna() | (df_clean['ESPECIALIDAD'] == '')].shape[0]
                 if missing_sp > 0:
                     st.warning(f"⚠️ Atención: Hay {missing_sp} filas con Especialidad vacía (No salen en la gráfica).")
             else:
@@ -395,32 +521,23 @@ if df is not None:
                 
         with c2:
             st.subheader("⏳ Sesiones de Terapia")
+            # USAMOS VARIABLES CALCULADAS ARRIBA (que ya usan df_clean)
+            # para consistencia perfecta KPI vs Gráfica
             
-            # --- Lógica del Donut (Traída aquí) ---
-            tot_prog_s = 0
+            tot_prog_s = total_programado_kpi
+            tot_ejec_s = total_ejecutadas_kpi
+            # Pendientes para gráfica (solo positivos visualmente)
             tot_pend_s = 0
-            
-            c_cant = 'CANT.' if 'CANT.' in df.columns else 'CANT'
-            if c_cant in df.columns:
-                 tot_prog_s = pd.to_numeric(df[c_cant], errors='coerce').fillna(0).sum()
-            if 'PENDIENTES' in df.columns:
-                 s_p = pd.to_numeric(df['PENDIENTES'], errors='coerce').fillna(0)
+            if 'PENDIENTES' in df_clean.columns:
+                 s_p = pd.to_numeric(df_clean['PENDIENTES'], errors='coerce').fillna(0)
                  tot_pend_s = s_p[s_p > 0].sum()
-            
-            # Lógica del Donut (Corregida para usar Columna Directa)
-            if col_realizadas:
-                 tot_ejec_s = pd.to_numeric(df[col_realizadas], errors='coerce').fillna(0).sum()
-            else:
-                 # Fallback
-                 sum_p = pd.to_numeric(df['PENDIENTES'], errors='coerce').fillna(0).sum() if 'PENDIENTES' in df.columns else 0
-                 tot_ejec_s = tot_prog_s - sum_p
                  
             pct_av = (tot_ejec_s / tot_prog_s * 100) if tot_prog_s > 0 else 0
             
             # Gráfico Donut Compacto
             source_bal = pd.DataFrame({
                 "Estado": ["Ejecutadas", "Pendientes"],
-                "Valor": [tot_ejec_s, tot_pend_s], # tot_pend_s sigue siendo "Pendientes Reales" (Solo positivos) para gráfica
+                "Valor": [tot_ejec_s, tot_pend_s],
                 "Color": ["#2E8B57", "#E0E0E0"]
             })
             
@@ -453,13 +570,13 @@ if df is not None:
 
         with c3:
             st.subheader("📋 Estado Pacientes")
-            if 'ESTADO' in df.columns:
-                df_st_valid = df[df['ESTADO'].notna() & (df['ESTADO'] != '')]
+            if 'ESTADO' in df_clean.columns:
+                df_st_valid = df_clean[df_clean['ESTADO'].notna() & (df_clean['ESTADO'] != '')]
                 
                 total_counts = df_st_valid['ESTADO'].value_counts().reset_index()
                 total_counts.columns = ['Estado', 'Total Terapias']
                 
-                col_id = 'DNI' if 'DNI' in df.columns else 'PACIENTES'
+                col_id = 'DNI' if 'DNI' in df_clean.columns else 'PACIENTES'
                 unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
                 unique_counts.columns = ['Estado', 'Pacientes Únicos']
                 final_stats = pd.merge(total_counts, unique_counts, on='Estado')
@@ -474,7 +591,7 @@ if df is not None:
                 
                 st.altair_chart((bars_st + text_st).properties(height=350), use_container_width=True)
                 
-                missing_st = df[df['PACIENTES'].notna() & (df['ESTADO'].isna() | (df['ESTADO'] == ''))].shape[0]
+                missing_st = df_clean[df_clean['PACIENTES'].notna() & (df_clean['ESTADO'].isna() | (df_clean['ESTADO'] == ''))].shape[0]
                 if missing_st > 0:
                     st.warning(f"⚠️ Atención: Hay {missing_st} filas con Estado vacío.")
             else:
@@ -483,9 +600,9 @@ if df is not None:
         st.divider()
         
         # --- 3. GEOGRAFÍA ---
-        st.subheader("🗺️ Mapa de Calor: Distritos")
-        if 'DISTRITO' in df.columns:
-             dist_data = df['DISTRITO'].value_counts().reset_index()
+        st.subheader("🗺️ Distribución por Distritos")
+        if 'DISTRITO' in df_clean.columns:
+             dist_data = df_clean['DISTRITO'].value_counts().reset_index()
              dist_data.columns = ['Distrito', 'Pacientes']
              
              # Chart Altair mejorado (VERTICAL)
@@ -513,8 +630,8 @@ if df is not None:
         st.header("🔍 Buscador Avanzado")
         
         # --- FILTRO POR ESTADO (NUEVO) ---
-        # 1. Obtener lista de estados únicos
-        lista_estados = ["Todos"] + sorted(df['ESTADO'].astype(str).unique().tolist())
+        # 1. Obtener lista de estados únicos (USANDO df_clean)
+        lista_estados = ["Todos"] + sorted(df_clean['ESTADO'].astype(str).unique().tolist())
         
         estado_filtro = st.selectbox(
             "📂 Filtrar por Estado (Opcional):",
@@ -523,11 +640,11 @@ if df is not None:
             key="filtro_estado_global"
         )
         
-        # 2. Filtrar lista de pacientes según el estado elegido
+        # 2. Filtrar lista de pacientes según el estado elegido (USANDO df_clean)
         if estado_filtro != "Todos":
-            df_search = df[df['ESTADO'].astype(str) == estado_filtro]
+            df_search = df_clean[df_clean['ESTADO'].astype(str) == estado_filtro]
         else:
-            df_search = df
+            df_search = df_clean
             
         # Selector de pacientes sorted (filtrado)
         pacientes_lista = df_search['PACIENTES'].dropna().unique().tolist()
