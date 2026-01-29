@@ -364,43 +364,32 @@ if df is not None:
         df_base = df.copy()
 
     # --- APLICAR FILTRO DE FECHAS AL DF_CLEAN ---
-    # --- APLICAR FILTRO DE FECHAS AL DF_CLEAN ---
-    # Recalcular trigger para asegurar consistencia
     filter_active = False
     if filt_year != "Todos" or filt_month_name != "Todos":
         filter_active = True
         
     if filter_active:
-        # Filtrar usando FECHA_CLAVE
-        # Asegurar que df_base tenga esa columna
+        # Asegurar que FECHA_CLAVE exista en df_base
         if 'FECHA_CLAVE' not in df_base.columns:
             df_base['FECHA_CLAVE'] = df.loc[df_base.index, 'FECHA_CLAVE']
             
-        # Aplicar condiciones
-        mask = pd.Series([True]*len(df_base), index=df_base.index)
+        # Crear máscara de filtrado
+        mask = pd.Series([True] * len(df_base), index=df_base.index)
         
         if filt_year != "Todos":
-             mask = mask & (df_base['FECHA_CLAVE'].apply(lambda x: str(x.year) if pd.notna(x) else '') == filt_year)
+             mask = mask & (df_base['FECHA_CLAVE'].apply(lambda x: str(x.year) if pd.notna(x) else '') == str(filt_year))
              
         if filt_month_name != "Todos":
-             # Recalcular numero de mes localmente
              mes_map_local = {"Enero":1, "Febrero":2, "Marzo":3, "Abril":4, "Mayo":5, "Junio":6, 
                               "Julio":7, "Agosto":8, "Septiembre":9, "Octubre":10, "Noviembre":11, "Diciembre":12}
              f_num = mes_map_local.get(filt_month_name, -1)
-             
              mask = mask & (df_base['FECHA_CLAVE'].apply(lambda x: x.month if pd.notna(x) else -1) == f_num)
              
-        # Guardar el filtrado final
         df_clean = df_base[mask].copy()
     else:
-        df_clean = df_base.copy() # Sin filtro de fecha
+        df_clean = df_base.copy()
 
     with tab_dashboard:
-        # --- DEBUG COMPLETO (Funcionando) ---
-        st.error(f"� DEBUG: Mes={filt_month_name} | Active={filter_active} | df_clean={len(df_clean)} | df_base={len(df_base)}")
-        st.write("Primeras 5 FECHA_CLAVE:", df_base['FECHA_CLAVE'].head())
-        st.write("Valores únicos Columna I (primeros 10):", df.iloc[:10, 8].tolist())
-        
         st.caption(f"Visualizando datos de: {data_source} | Actualizado: {hora_lectura}")
         
         # --- 1. KPIS (TARJETAS) ---
@@ -416,8 +405,8 @@ if df is not None:
              total_pacientes = len(df_clean) # Fallback count rows
              
         kpi1.metric("Pacientes", total_pacientes)
-       # KPI 2: Total Terapias / Sesiones
-        # FORZAR RECARGA - versión 2
+       
+        # KPI 2: Total Terapias / Sesiones
         if filter_active:
             # Mostramos el total de FILAS que caen en ese mes de término
             total_filas = len(df_clean)
