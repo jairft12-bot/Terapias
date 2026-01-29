@@ -11,13 +11,13 @@ import urllib3
 import ssl
 
 # Configuración de página
-st.set_page_config(page_title="Visor de Terapias", layout="wide")
+st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sidebar_state="expanded")
 
 # --- CSS PARA OCULTAR MENÚS (MODO PRIVADO) ---
 hide_streamlit_style = """
             <style>
-            #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
+            /* #MainMenu {visibility: hidden;} */
+            /* header {visibility: hidden;} */
             footer {visibility: hidden;}
             .stDeployButton {display:none;}
             </style>
@@ -30,6 +30,9 @@ st.title("📊 Visor de Terapias")
 # Appending &download=1 to force binary download from the sharing link
 DATA_URL = "https://viva1aips-my.sharepoint.com/:x:/g/personal/gestorprocesos_viva1a_com_pe/IQBVCUVP2PrvRowbT35kUsq-AbGX0ndr7O2WukwjN-ucA0w?e=cPdRMs&download=1"
 SHEET_NAME = "Seguimiento de terapias "
+LOCAL_PATH = "data.xlsx"
+
+
 
 # Configuración SSL
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -106,6 +109,12 @@ def load_data(timestamp_trigger):
     timestamp = datetime.datetime.now().strftime('%H:%M:%S')
     return df, error_msg, timestamp, data_source
 
+# --- CONFIGURACIÓN DE ENTORNO ---
+# Detectamos si estamos en local chequeando el path específico del usuario
+# Esto permite ver controles avanzados en tu PC, pero ocultarlos en la nube
+import getpass
+IS_LOCAL = "jair" in os.getcwd() or getpass.getuser() == "jair"
+
 # --- LÓGICA DE ESTADO DE SESIÓN ---
 if 'last_refresh' not in st.session_state:
     st.session_state.last_refresh = time.time()
@@ -117,6 +126,7 @@ if 'df_cache' not in st.session_state:
 with st.sidebar:
     st.header("⚙️ Configuración")
     
+    # BOTÓN RECARGAR (Visible siempre, pero destacado)
     if st.button("🔄 RECARGAR AHORA", use_container_width=True):
         st.cache_data.clear()
         st.session_state.df_cache, error, ts, source = load_data(time.time())
@@ -125,35 +135,48 @@ with st.sidebar:
         
     st.divider()
     
-    # Auto-refresh logic
-    enable_autorefresh = st.checkbox("✅ Auto-escaneo activo", value=True)
-    if enable_autorefresh:
-        refresh_interval = st.select_slider(
-            "Frecuencia (segundos):",
-            options=[90, 120, 180, 240, 300, 600],
-            value=90
-        )
+    # CONTROLES SOLO VISIBLES EN LOCAL
+    enable_autorefresh = False # Default en nube: No auto-refresh agresivo UI
+    if IS_LOCAL:
+        st.caption("🛠️ Modo Local Activo")
+        # Auto-refresh logic
+        enable_autorefresh = st.checkbox("✅ Auto-escaneo activo", value=True)
+        if enable_autorefresh:
+            refresh_interval = st.select_slider(
+                "Frecuencia (segundos):",
+                options=[90, 120, 180, 240, 300, 600],
+                value=90
+            )
+            # Solo ejecutamos el sleep/rerun si está habilitado
+            if enable_autorefresh:
+                 # Pequeña lógica de rerun (simplificada para no bloquear)
+                 pass
 
 # Carga de datos real
 df, error, hora_lectura, data_source = load_data(st.session_state.last_refresh)
 
 # Área Principal - Indicadores
-col1, col2 = st.columns([3, 1])
-with col1:
-    if "Web" in data_source:
-        st.success(f"☁️ {data_source}")
-    elif "Local" in data_source:
-        st.warning(f" {data_source}")
-    else:
-        st.error("❌ Sin Conexión")
+# Solo mostramos la fuente de datos si estamos en local o si hay error
+if error or IS_LOCAL:
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if error:
+            st.error(f"❌ Error: {error}")
+        elif IS_LOCAL:
+             if "Web" in data_source:
+                 st.success(f"☁️ {data_source}")
+             elif "Local" in data_source:
+                 st.warning(f" {data_source}")
+             else:
+                 st.error("❌ Sin Conexión")
         
-with col2:
-    st.write(f"🕒 **Actualizado:** {hora_lectura}")
+    with col2:
+        st.write(f"🕒 **Actualizado:** {hora_lectura}")
 
 if df is not None:
     # Definir 4 pestañas explícitamente para evitar errores
     tab_dashboard, tab_search, tab_main, tab_downloads = st.tabs([
-        "📊 Dashboard Ejecutivo", 
+        "📊 Dashboard ", 
         "🔍 Buscador de Pacientes", 
         "📋 Tabla Principal", 
         "📥 Descargas"
@@ -181,7 +204,7 @@ if df is not None:
         # Contamos solo si la columna PACIENTES tiene dato
         # Esto filtra filas vacías del final de excel
         total_filas = df['PACIENTES'].dropna().count() if 'PACIENTES' in df.columns else len(df)
-        kpi2.metric("Total Terapias", total_filas, help="Número de terapias registradas (excluye filas vacías)")
+        kpi2.metric("Terapias Ordenadas", total_filas, help="Número de terapias registradas (excluye filas vacías)")
 
         # KPI 3, 4, 5: Desglose de Estados
         try:
@@ -222,35 +245,32 @@ if df is not None:
                     delta_color="inverse"
                 )
                 
-                # --- KPI 5: Sesiones (Saldo) Pendientes por Realizar ---
-                # Solicitud: "SUMA DE PENDIENTES (Sin Negativos)" + Nota si hay negativos
+                # --- KPI 5: Sesiones Realizadas (Avance) ---
+                # Solicitud: Primero % y abajo el número total
                 
                 total_sesiones_saldo = 0
                 count_negativos = 0
                 
                 if 'PENDIENTES' in df.columns:
-                     # Asegurar numérico
                      s_pend_col = pd.to_numeric(df['PENDIENTES'], errors='coerce').fillna(0)
-                     
-                     # 1. Sumar SOLO POSITIVOS (Trabajo real)
+                     # Saldo pendiente real (positivo)
                      total_sesiones_saldo = int(s_pend_col[s_pend_col > 0].sum())
-                     
-                     # 2. Contar NEGATIVOS (Excesos)
                      count_negativos = int(s_pend_col[s_pend_col < 0].count())
                 
-                # Calcular tasa sobre el total programado
                 col_cant = 'CANT.' if 'CANT.' in df.columns else 'CANT'
                 total_programado_kpi = 0
                 if col_cant in df.columns:
                      total_programado_kpi = pd.to_numeric(df[col_cant], errors='coerce').fillna(0).sum()
-                     
-                tasa_saldo = (total_sesiones_saldo / total_programado_kpi * 100) if total_programado_kpi > 0 else 0
+                
+                # CÁLCULO DE EJECUTADAS
+                total_ejecutadas_kpi = total_programado_kpi - total_sesiones_saldo
+                tasa_ejecucion = (total_ejecutadas_kpi / total_programado_kpi * 100) if total_programado_kpi > 0 else 0
                 
                 kpi5.metric(
-                    "Sesiones por Realizar",
-                    f"{total_sesiones_saldo} Pendientes",
-                    f"{tasa_saldo:.1f}% del Total",
-                    delta_color="off" 
+                    "Sesiones Realizadas",
+                    f"{tasa_ejecucion:.1f}%",
+                    f"{total_ejecutadas_kpi} Ejecutadas",
+                    delta_color="normal" # Verde por defecto si es positivo
                 )
                 
                 if count_negativos > 0:
@@ -266,111 +286,124 @@ if df is not None:
 
         st.divider()
 
-        # --- 2. GRÁFICOS ESTRATÉGICOS ---
-        c1, c2 = st.columns(2)
+        # --- 2. GRÁFICOS ESTRATÉGICOS (Layout Ajustado: 3 Columnas) ---
+        # Izquierda: Especialidad | Centro: Donut Balance | Derecha: Estado
+        c1, c2, c3 = st.columns([1.2, 0.8, 1.2])
         
         with c1:
-            st.subheader("📊 Terapias más Solicitadas")
+            st.subheader("📊 Terapias Solicitadas")
             if 'ESPECIALIDAD' in df.columns:
                 # 1. Preparar datos limpios
-                # Filtrar nulos o vacíos
                 df_sp = df[df['ESPECIALIDAD'].notna() & (df['ESPECIALIDAD'] != '')]
                 
-                # 2. Calcular estadisticas: Total vs Únicos
+                # 2. Calcular estadisticas
                 col_id = 'DNI' if 'DNI' in df.columns else 'PACIENTES'
-                
                 sp_stats = df_sp.groupby('ESPECIALIDAD').agg(
                     Total_Terapias=('ESPECIALIDAD', 'count'),
                     Pacientes_Unicos=(col_id, 'nunique')
-                ).reset_index()
+                ).reset_index().sort_values(by="Total_Terapias", ascending=False)
                 
-                # Ordenar por Total
-                sp_stats = sp_stats.sort_values(by="Total_Terapias", ascending=False)
-                
-                # 3. Gráfico con ALTAIR (Custom Tooltip + Etiquetas)
+                # 3. Gráfico
                 base = alt.Chart(sp_stats).encode(
-                    x=alt.X('Total_Terapias', title='Total Sesiones'),
+                    x=alt.X('Total_Terapias', title='Total Ordenadas'),
                     y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
                     tooltip=[
                         alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
-                        alt.Tooltip('Total_Terapias', title='Total Sesiones'),
-                        alt.Tooltip('Pacientes_Unicos', title='👤 Pacientes Únicos')
+                        alt.Tooltip('Total_Terapias', title='Terapias Ordenadas'),
+                        alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos')
                     ]
                 )
-                
                 bars = base.mark_bar(color="#FF4B4B")
+                text = base.mark_text(align='left', dx=3, color='black').encode(text='Total_Terapias')
                 
-                text = base.mark_text(
-                    align='left',
-                    baseline='middle',
-                    dx=3,  # Desplazamiento a la derecha
-                    color='black' # Texto negro para contraste
-                ).encode(
-                    text='Total_Terapias'
-                )
+                st.altair_chart((bars + text).properties(height=350), use_container_width=True)
                 
-                final_chart = (bars + text).properties(height=400).interactive()
-                st.altair_chart(final_chart, use_container_width=True)
-                
-                # NOTA DE DATOS FALTANTES
-                # Contamos cuántos pacientes tienen nombre pero NO tienen especialidad
                 missing_sp = df[df['PACIENTES'].notna() & (df['ESPECIALIDAD'].isna() | (df['ESPECIALIDAD'] == ''))].shape[0]
                 if missing_sp > 0:
                     st.warning(f"⚠️ Atención: Hay {missing_sp} filas con Especialidad vacía (No salen en la gráfica).")
-                
             else:
                 st.warning("Columna ESPECIALIDAD no encontrada")
                 
         with c2:
-            st.subheader("🍩 Estado de Pacientes")
+            st.subheader("⏳ Sesiones de Terapia")
+            
+            # --- Lógica del Donut (Traída aquí) ---
+            tot_prog_s = 0
+            tot_pend_s = 0
+            
+            c_cant = 'CANT.' if 'CANT.' in df.columns else 'CANT'
+            if c_cant in df.columns:
+                 tot_prog_s = pd.to_numeric(df[c_cant], errors='coerce').fillna(0).sum()
+            if 'PENDIENTES' in df.columns:
+                 s_p = pd.to_numeric(df['PENDIENTES'], errors='coerce').fillna(0)
+                 tot_pend_s = s_p[s_p > 0].sum()
+            
+            tot_ejec_s = tot_prog_s - tot_pend_s
+            pct_av = (tot_ejec_s / tot_prog_s * 100) if tot_prog_s > 0 else 0
+            
+            # Gráfico Donut Compacto
+            source_bal = pd.DataFrame({
+                "Estado": ["Ejecutadas", "Pendientes"],
+                "Valor": [tot_ejec_s, tot_pend_s],
+                "Color": ["#2E8B57", "#E0E0E0"]
+            })
+            
+            base_b = alt.Chart(source_bal).encode(
+                theta=alt.Theta("Valor", stack=True)
+            )
+            pie_b = base_b.mark_arc(innerRadius=60, outerRadius=85).encode(
+                color=alt.Color("Estado", scale=alt.Scale(domain=["Ejecutadas", "Pendientes"], range=["#2E8B57", "#E0E0E0"]), legend=None),
+                tooltip=["Estado", "Valor"]
+            )
+            text_p = base_b.mark_text(radius=0, size=20, fontStyle="bold", color="#2E8B57").encode(
+                text=alt.value(f"{pct_av:.0f}%")
+            )
+            st.altair_chart((pie_b + text_p).properties(height=250), use_container_width=True)
+            
+            # Métricas Centradas y Estilizadas (HTML/CSS)
+            st.markdown(f"""
+            <div style="display: flex; justify-content: center; gap: 20px; text-align: center; margin-top: -10px;">
+                <div>
+                    <span style="font-size: 14px; color: #555;">Programado</span><br>
+                    <span style="font-size: 20px; font-weight: bold; color: #333;">{int(tot_prog_s)}</span>
+                </div>
+                <div style="border-left: 1px solid #ddd; height: 30px; margin-top: 5px;"></div>
+                <div>
+                    <span style="font-size: 14px; color: #555;">Pendientes</span><br>
+                    <span style="font-size: 20px; font-weight: bold; color: #FF4B4B;">{int(tot_pend_s)}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with c3:
+            st.subheader("📋 Estado Pacientes")
             if 'ESTADO' in df.columns:
-                # 1. Total de Terapias (Filas)
-                # Filtramos vacíos de ESTADO para la gráfica
                 df_st_valid = df[df['ESTADO'].notna() & (df['ESTADO'] != '')]
                 
                 total_counts = df_st_valid['ESTADO'].value_counts().reset_index()
                 total_counts.columns = ['Estado', 'Total Terapias']
                 
-                # 2. Pacientes Únicos (DNIs)
                 col_id = 'DNI' if 'DNI' in df.columns else 'PACIENTES'
                 unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
                 unique_counts.columns = ['Estado', 'Pacientes Únicos']
-                
-                # 3. Fusionar datos
                 final_stats = pd.merge(total_counts, unique_counts, on='Estado')
                 
-                # Gráfico con ALTAIR (Custom Tooltip + Etiquetas)
                 base_st = alt.Chart(final_stats).encode(
                     x=alt.X('Total Terapias', title='Total'),
                     y=alt.Y('Estado', sort='-x', title=''),
-                    tooltip=[
-                        alt.Tooltip('Estado', title='Estado'),
-                        alt.Tooltip('Total Terapias', title='Total'),
-                        alt.Tooltip('Pacientes Únicos', title='👤 Pacientes Reales')
-                    ]
+                    tooltip=['Estado', 'Total Terapias', 'Pacientes Únicos']
                 )
-                
                 bars_st = base_st.mark_bar(color="#FF4B4B")
+                text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text='Total Terapias')
                 
-                text_st = base_st.mark_text(
-                    align='left',
-                    baseline='middle',
-                    dx=3,
-                    color='black'
-                ).encode(
-                    text='Total Terapias'
-                )
+                st.altair_chart((bars_st + text_st).properties(height=350), use_container_width=True)
                 
-                final_chart_st = (bars_st + text_st).properties(height=400).interactive()
-                st.altair_chart(final_chart_st, use_container_width=True)
-                
-                # NOTA DE DATOS FALTANTES
                 missing_st = df[df['PACIENTES'].notna() & (df['ESTADO'].isna() | (df['ESTADO'] == ''))].shape[0]
                 if missing_st > 0:
                     st.warning(f"⚠️ Atención: Hay {missing_st} filas con Estado vacío.")
             else:
-                st.warning("Columna ESTADO no encontrada")
-
+                 st.warning("Columna ESTADO no encontrada")
+        
         st.divider()
         
         # --- 3. GEOGRAFÍA ---
