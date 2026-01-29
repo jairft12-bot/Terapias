@@ -396,6 +396,11 @@ if df is not None:
         df_clean = df_base.copy() # Sin filtro de fecha
 
     with tab_dashboard:
+        # --- DEBUG COMPLETO (Funcionando) ---
+        st.error(f"� DEBUG: Mes={filt_month_name} | Active={filter_active} | df_clean={len(df_clean)} | df_base={len(df_base)}")
+        st.write("Primeras 5 FECHA_CLAVE:", df_base['FECHA_CLAVE'].head())
+        st.write("Valores únicos Columna I (primeros 10):", df.iloc[:10, 8].tolist())
+        
         st.caption(f"Visualizando datos de: {data_source} | Actualizado: {hora_lectura}")
         
         # --- 1. KPIS (TARJETAS) ---
@@ -411,8 +416,8 @@ if df is not None:
              total_pacientes = len(df_clean) # Fallback count rows
              
         kpi1.metric("Pacientes", total_pacientes)
-       
-        # KPI 2: Total Terapias / Sesiones
+       # KPI 2: Total Terapias / Sesiones
+        # FORZAR RECARGA - versión 2
         if filter_active:
             # Mostramos el total de FILAS que caen en ese mes de término
             total_filas = len(df_clean)
