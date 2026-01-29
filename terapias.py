@@ -206,27 +206,28 @@ if df is not None:
             'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
             'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
         }
-        
-        try:
-            # Formatos esperados: "31-oct", "31-oct-2023", "31/10/2023"
+            # CASO 2: Texto tipo "31-oct" (Regex estricto para evitar 'ene' en 'pendiente')
             target_month = None
-            target_year = datetime.datetime.now().year # Default current year if missing
+            target_year = datetime.datetime.now().year # Default curr year
             
-            # Buscar texto de mes
+            import re
+            
+            # Buscar texto de mes con límites de palabra o separadores
             for mes_txt, mes_num in meses.items():
-                if mes_txt in text:
+                # Regex: que 'ene' esté precedeido de inicio/espacio/-// y seguido de fin/espacio/-//
+                # pattern = r'(?:^|[\s\-\/])' + mes_txt + r'(?:$|[\s\-\/])' 
+                # Simplificado: \b es boundary (pero ojo con guiones). 
+                # Mejor explicit:
+                if re.search(r'(?:^|[\s\-\/])' + mes_txt + r'(?:$|[\s\-\/])', text):
                     target_month = mes_num
                     break
             
             if target_month:
                 # Intentar sacar año si existe
-                # (Simple heuristic: find 4 digits)
-                import re
                 years = re.findall(r'\d{4}', text)
                 if years:
                     target_year = int(years[0])
-                
-                # Devolvemos fecha ficticia paso 1 del mes para agrupar
+                # Devolvemos fecha ficticia
                 return datetime.datetime(target_year, target_month, 1)
             
             # Si no es texto, intentar parser standard
