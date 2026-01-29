@@ -20,12 +20,20 @@ hide_streamlit_style = """
             footer {display: none !important;}
             .stDeployButton {display: none !important;}
             
-            /* RESET: Don't hide these, they kill the sidebar toggle */
-            /* [data-testid="stToolbar"] {display: none !important;} */
-            /* [data-testid="stDecoration"] {display: none !important;} */
-            /* header {display: none !important;}  <-- ESTO OCULTABA EL SIDEBAR */
-            /* [data-testid="stHeader"] {display: none !important;} <-- ESTO TAMBIEN */
+            /* Ocultar barra superior pero mantener espacio para el control del sidebar */
+            [data-testid="stHeader"] {
+                background: rgba(0,0,0,0) !important;
+                color: rgba(0,0,0,0) !important;
+            }
+            [data-testid="stHeader"] > div:first-child {
+                display: none !important;
+            }
             
+            /* Específico para el botón de GitHub/Fork en Streamlit Cloud */
+            a[href*="github.com"] {
+                display: none !important;
+            }
+
             /* Custom Scrollbar for Sidebar */
             [data-testid="stSidebar"] ::-webkit-scrollbar {
                 display: block !important;
@@ -49,11 +57,6 @@ hide_streamlit_style = """
                 border: 1px solid #ddd !important;
                 border-radius: 50% !important;
                 z-index: 1000000 !important;
-                
-                /* Position fallback if it's lost in the header */
-                /* position: fixed !important; */
-                /* top: 60px !important; */
-                /* left: 10px !important; */
             }
             
             /* Ensure the toggle icon inside is visible */
@@ -63,7 +66,6 @@ hide_streamlit_style = """
             }
 
             /* --- SIDEBAR RESCUE --- */
-            /* Keep strict scrolling enabled */
             section[data-testid="stSidebar"] > div {
                 flex-shrink: 0 !important;
                 height: 100vh !important;
@@ -71,7 +73,6 @@ hide_streamlit_style = """
                 z-index: 999999 !important;
             }
 
-            /* Ensure buttons inside sidebar are seen */
             [data-testid="stSidebar"] button {
                 display: flex !important;
                 visibility: visible !important;
