@@ -16,10 +16,13 @@ st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sideba
 # --- CSS PARA OCULTAR MENÚS (MODO PRIVADO) ---
 hide_streamlit_style = """
             <style>
-            /* #MainMenu {visibility: hidden;} */
-            /* header {visibility: hidden;} */
-            footer {visibility: hidden;}
-            .stDeployButton {display:none;}
+            #MainMenu {visibility: hidden;}
+            header {display: none !important;}
+            footer {display: none !important;}
+            .stDeployButton {display: none !important;}
+            [data-testid="stToolbar"] {display: none !important;}
+            [data-testid="stDecoration"] {display: none !important;}
+            [data-testid="stHeader"] {display: none !important;}
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
