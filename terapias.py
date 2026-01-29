@@ -392,121 +392,59 @@ if df is not None:
         # --- 1. KPIS (TARJETAS) ---
         kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
         
-        # KPI 1: Total Pacientes (Únicos de Columna B - Index 1)
+        # KPI 1: Pacientes Únicos (Columna B - Index 1)
         try:
-            total_pacientes = df_final.iloc[:, 1].nunique()
+            val_pacientes = df_final.iloc[:, 1].nunique()
         except:
-            total_pacientes = len(df_final)
-             
-        kpi1.metric("Pacientes", total_pacientes)
+            val_pacientes = 0
+        kpi1.metric("Pacientes", val_pacientes)
        
-        # KPI 2: Total Terapias / Sesiones (RESPETA FILTRO DE TIEMPO)
+        # KPI 2: Agendamiento / Terapias (Total de filas en df_final)
         total_filas = len(df_final)
-
         if filt_month_name != "Todos":
             label_kpi2 = f"Agendamiento {filt_month_name}"
         elif filt_year != "Todos":
             label_kpi2 = f"Agendamiento {filt_year}"
         else:
             label_kpi2 = "Terapias Ordenadas"
-
         kpi2.metric(label_kpi2, total_filas)
 
-
-        # KPI 3, 4, 5: Desglose de Estados - USANDO DF_FINAL
+        # KPI 3, 4, 5: Gestión y Avance
         try:
-            # Ya tenemos df_final
-            df_kpi_valid = df_final
-            total_validas = len(df_kpi_valid)
+            # Buscar columna ESTADO
+            col_estado = next((c for c in df_final.columns if "ESTADO" in str(c).upper()), None)
             
-            # Buscar columna ESTADO flexiblemente
-            col_estado_found = None
-            for c in df_final.columns:
-                if "ESTADO" in str(c).upper().strip():
-                    col_estado_found = c
-                    break
-            
-            if col_estado_found:
-                # Normalizar serie
-                s_estado = df_kpi_valid[col_estado_found].astype(str).str.upper().str.strip()
+            if col_estado:
+                s_estado = df_final[col_estado].astype(str).str.upper().str.strip()
                 
-                # --- KPI 3: Gestión Realizada (FINALIZADO + EN PROCESO) ---
-                gestor_mask = s_estado.isin(['FINALIZADO', 'EN PROCESO'])
-                count_gestion = s_estado[gestor_mask].shape[0]
-                tasa_gestion = (count_gestion / total_validas * 100) if total_validas > 0 else 0
+                # KPI 3: Gestión (Finalizado + En Proceso)
+                count_gestion = s_estado.isin(['FINALIZADO', 'EN PROCESO']).sum()
+                tasa_gestion = (count_gestion / total_filas * 100) if total_filas > 0 else 0
+                kpi3.metric("Gestión Realizada", f"{tasa_gestion:.1f}%", f"{count_gestion} Fin/Pro")
                 
-                kpi3.metric(
-                    "Gestión De Agen Realizada", 
-                    f"{tasa_gestion:.1f}%", 
-                    f"{count_gestion} Fin/Proceso"
-                )
-                
-                # --- KPI 4: Pendiente Agendamiento ---
-                pend_ag_mask = s_estado.str.contains("AGENDAMIENTO", case=False, na=False)
-                count_pend_ag = s_estado[pend_ag_mask].shape[0]
-                tasa_pend_ag = (count_pend_ag / total_validas * 100) if total_validas > 0 else 0
-                
-                kpi4.metric(
-                    "Pendiente Agendamiento",
-                    f"{tasa_pend_ag:.1f}%",
-                    f"{count_pend_ag} Por Agendar",
-                    delta_color="inverse"
-                )
-                
-                # --- KPI 5: Sesiones Realizadas (Avance) ---
-                # Solicitud: Programado (K), Realizado (L), Pendientes (M)
-                # Usamos df_final para asegurar que no sumamos filas vacías
-                
-                total_sesiones_saldo = 0
-                count_negativos = 0
-                
-                # Columna Pendientes (M usualmente)
-                if 'PENDIENTES' in df_final.columns:
-                     s_pend_col = pd.to_numeric(df_final['PENDIENTES'], errors='coerce').fillna(0)
-                     total_sesiones_saldo = int(s_pend_col[s_pend_col > 0].sum())
-                     count_negativos = int(s_pend_col[s_pend_col < 0].count())
-                else:
-                    s_pend_col = pd.Series([0]*len(df_final))
-                
-                # Columna Programado/Cant (K usualmente)
-                col_cant = 'CANT.' if 'CANT.' in df_final.columns else 'CANT'
-                total_programado_kpi = 0
-                if col_cant in df_final.columns:
-                     total_programado_kpi = pd.to_numeric(df_final[col_cant], errors='coerce').fillna(0).sum()
-                
-                # Columna Realizadas/Ejecutadas (L usualmente)
-                col_realizadas = None
-                for c in df_final.columns:
-                    if "REALIZADAS" in str(c) or "EJECUTADAS" in str(c):
-                        col_realizadas = c
-                        break
-                
-                total_ejecutadas_kpi = 0
-                if col_realizadas:
-                     total_ejecutadas_kpi = pd.to_numeric(df_final[col_realizadas], errors='coerce').fillna(0).sum()
-                else:
-                     # Fallback seguro: Programado - Pendientes
-                     total_ejecutadas_kpi = total_programado_kpi - s_pend_col.sum()
-                
-                tasa_ejecucion = (total_ejecutadas_kpi / total_programado_kpi * 100) if total_programado_kpi > 0 else 0
-                
-                kpi5.metric(
-                    "Sesiones Realizadas",
-                    f"{tasa_ejecucion:.1f}%",
-                    f"{int(total_ejecutadas_kpi)} Ejecutadas",
-                    delta_color="normal" # Verde por defecto si es positivo
-                )
-                
-                if count_negativos > 0:
-                    kpi5.caption(f"⚠️ {count_negativos} casos con exceso (negativos)")
-
+                # KPI 4: Pendiente Agendamiento
+                count_pend = s_estado.str.contains("AGENDAMIENTO", na=False).sum()
+                tasa_pend = (count_pend / total_filas * 100) if total_filas > 0 else 0
+                kpi4.metric("Pte Agendamiento", f"{tasa_pend:.1f}%", f"{count_pend} Casos", delta_color="inverse")
             else:
-                 kpi3.metric("Gestión", "N/A", "Sin Estado")
-                 kpi4.metric("P. Agendamiento", "N/A", "Sin Estado")
-                 kpi5.metric("P. Ejecución", "N/A", "Sin Estado")
-                 
+                kpi3.metric("Gestión", "N/A")
+                kpi4.metric("Pte Agen", "N/A")
+
+            # KPI 5: Sesiones (Avance)
+            # Buscamos columnas CANT. (K) y REALIZADAS (L)
+            col_cant = next((c for c in df_final.columns if "CANT" in str(c).upper()), None)
+            col_real = next((c for c in df_final.columns if "REALIZADA" in str(c).upper() or "EJECUTADA" in str(c).upper()), None)
+            
+            if col_cant and col_real:
+                total_prog = pd.to_numeric(df_final[col_cant], errors='coerce').sum()
+                total_ejec = pd.to_numeric(df_final[col_real], errors='coerce').sum()
+                tasa_avance = (total_ejec / total_prog * 100) if total_prog > 0 else 0
+                kpi5.metric("Sesiones Realiz.", f"{tasa_avance:.1f}%", f"{int(total_ejec)} de {int(total_prog)}")
+            else:
+                kpi5.metric("Sesiones", "N/A")
+                
         except Exception as e:
-            kpi3.metric("Error", "!!!", str(e))
+            st.error(f"Error calculando KPIs 3-5: {e}")
 
         st.divider()
 
