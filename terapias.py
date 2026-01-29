@@ -387,21 +387,16 @@ if df is not None:
     df_final = df_clean.copy()
 
     with tab_dashboard:
-        # PASO 4: DEBUG TEMPORAL
-        st.write("DEBUG df_final filas:", len(df_final))
         st.caption(f"Visualizando datos de: {data_source} | Actualizado: {hora_lectura}")
 
         # --- 1. KPIS (TARJETAS) ---
         kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
         
-        # KPI 1: Total Pacientes
-        col_dni = 'DNI' if 'DNI' in df_final.columns else 'DNI ' # Space matters?
-        if col_dni not in df_final.columns and 'DNI' in df_final.columns: col_dni = 'DNI'
-            
-        if col_dni in df_final.columns:
-             total_pacientes = df_final[col_dni].nunique()
-        else:
-             total_pacientes = len(df_final) # Fallback count rows
+        # KPI 1: Total Pacientes (Únicos de Columna B - Index 1)
+        try:
+            total_pacientes = df_final.iloc[:, 1].nunique()
+        except:
+            total_pacientes = len(df_final)
              
         kpi1.metric("Pacientes", total_pacientes)
        
