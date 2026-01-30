@@ -1212,7 +1212,20 @@ if df is not None:
                     
                     if tl:
                         df_tl = pd.DataFrame(tl)
-                        st.scatter_chart(df_tl, x="Fecha", y="Ses", size=100)
+                        
+                        # Reemplazamos scatter_chart por Altair explícito para controlar etiquetas en ESPAÑOL
+                        c_asist = alt.Chart(df_tl).mark_circle(size=100, color="#28a745").encode(
+                            x=alt.X('Fecha', title='Fecha de Asistencia'),
+                            y=alt.Y('Ses', title='Sesión', sort=None), # sort=None para mantener orden S1, S2...
+                            tooltip=[
+                                alt.Tooltip('Fecha', title='Fecha', format='%d/%m/%Y'),
+                                alt.Tooltip('Ses', title='Sesión')
+                            ]
+                        ).properties(
+                            height=300
+                        ).interactive()
+                        
+                        st.altair_chart(c_asist, use_container_width=True)
                         st.success(f"✅ Última sesión: {df_tl['Fecha'].max().strftime('%d/%m/%Y')}")
                         
                         # NUEVA TABLA DE SESIONES (Solicitada)
