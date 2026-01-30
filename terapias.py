@@ -41,6 +41,16 @@ header, .stDeployButton {
     opacity: 0 !important;
 }
 
+/* Oculta el widget de estado (Running Man / Stop) y botones de Cloud */
+[data-testid="stStatusWidget"], 
+[data-testid="stToolbar"], 
+#MainMenu, 
+.stApp > header,
+div[data-testid="stDecoration"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
 /* --- 2. SIDEBAR "EXECUTIVE MIDNIGHT" (PODER Y ELEGANCIA) --- */
 section[data-testid="stSidebar"] {
     /* Gradiente "Midnight City": Oscuro, serio y ejecutivo */
