@@ -19,17 +19,26 @@ hide_streamlit_style = """
 /* --- 1. Ocultar Elementos de Streamlit (White Label) --- */
 /* Oculta el menú flotante inferior derecho */
 [data-testid="stToolbar"] {
-    display: none;
+    display: none !important;
 }
 
 /* Oculta el footer de Streamlit */
 footer {
-    visibility: hidden;
+    display: none !important;
+    visibility: hidden !important;
 }
 
-/* Oculta el header superior */
-header {
-    visibility: hidden;
+/* Oculta el header superior y botones */
+header, .stDeployButton {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Oculta menú de acciones de gráficas (Vega/Altair) */
+.vega-actions, summary.action-menu {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
 
 /* --- 2. SIDEBAR "EXECUTIVE MIDNIGHT" (PODER Y ELEGANCIA) --- */
