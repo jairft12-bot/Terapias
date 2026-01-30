@@ -1154,6 +1154,7 @@ if df is not None:
                     st.markdown(f"### 👤 {p_data_found.get('PACIENTES', p_sel)}")
                     st.caption(f"Detalle: {t_sel}")
                     st.write(f"📍 **Distrito:** {p_data_found.get('DISTRITO', 'Sin Registro')}")
+                    st.write(f"🏠 **Dirección:** {p_data_found.get('DIRECCION', 'Sin Registro')}")
                     
                     if IS_LOCAL:
                         with st.expander("🛠️ Ver Datos Crudos"):
