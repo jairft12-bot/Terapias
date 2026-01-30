@@ -614,6 +614,19 @@ if df is not None:
         df_final = df_base.copy()
 
     with tab_dashboard:
+        # --- CÁLCULO DE RANGO DE FECHAS VISIBLE ---
+        rango_texto = "Periodo no definido"
+        if 'FECHA_CLAVE' in df_dash.columns:
+            dates_viz = df_dash['FECHA_CLAVE'].dropna()
+            if not dates_viz.empty:
+                min_d = dates_viz.min()
+                max_d = dates_viz.max()
+                m_map = {1:"Ene", 2:"Feb", 3:"Mar", 4:"Abr", 5:"May", 6:"Jun", 
+                         7:"Jul", 8:"Ago", 9:"Sep", 10:"Oct", 11:"Nov", 12:"Dic"}
+                rango_texto = f"{m_map.get(min_d.month, '')} {min_d.year} - {m_map.get(max_d.month, '')} {max_d.year}"
+        
+        # Header informativo
+        st.markdown(f"**📅 Periodo Analizado:** `{rango_texto}`")
         st.caption(f"Visualizando datos de: {data_source} | Actualizado: {hora_lectura}")
 
         # Variables para KPI 3, 4, 5 GLOBAL (Toda la data)
@@ -818,7 +831,7 @@ if df is not None:
             
         # 1. VALOR PRINCIPAL: Global Total
         total_global_pacientes = df_base[col_dni].nunique() if col_dni in df_base.columns else len(df_base)
-        kpi1.metric("Pacientes Totales", total_global_pacientes, "En Base")
+        kpi1.metric("Pacientes Totales", total_global_pacientes, "Pacientes")
         
         # 2. CAPTION: Detalle del Filtro (Filtro Actual)
         if filter_active:
@@ -842,7 +855,7 @@ if df is not None:
         else:
             total_global_terapias = len(df_base)
 
-        kpi2.metric("Ordenes", total_global_terapias, "Terapias")
+        kpi2.metric("Ordenes", total_global_terapias, "Terapias Ordenadas")
         
         # 2. CAPTION: Detalle del Filtro (Filtro Actual)
         if filter_active:
