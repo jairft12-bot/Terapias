@@ -1212,12 +1212,27 @@ if df is not None:
         
         
         # --- ULTIMA LIMPIEZA DE FORMATO (ID/DNI) ---
-        # Aseguramos que los IDs se vean limpios sin .0 decimal
+        # Aseguramos que los IDs se vean limpios sin .0 decimal y con ceros a la izquierda si aplica
         clean_cols = ['DNI', 'ID', 'DOCUMENTO', 'CODIGO']
+        cols_to_pad = ['DNI', 'DOCUMENTO'] # Solo estos suelen necesitar padding a 8
+
         for c in clean_cols:
             if c in df_final.columns:
-                # Quitamos .0 al final transformando a string y reemplazando con Regex
-                df_final[c] = df_final[c].astype(str).str.replace(r'\.0+$', '', regex=True)
+                # 1. Transformamos a string
+                s_col = df_final[c].astype(str)
+                # 2. Reemplazamos .0 al final
+                s_col = s_col.str.replace(r'\.0+$', '', regex=True)
+                
+                # 3. PADDING (Solo para DNI/Documento y si son números)
+                if c in cols_to_pad:
+                    def smart_pad(val):
+                        # Si es numérico puro y tiene menis de 8 digitos, rellenar (ej. 12345 -> 00012345)
+                        if val.isdigit() and len(val) < 8 and len(val) > 4: # >4 evita padear IDs cortos como '1'
+                            return val.zfill(8)
+                        return val
+                    s_col = s_col.map(smart_pad)
+                
+                df_final[c] = s_col
 
         # Configuración "Ejecutiva" para las columnas clave
         # Nota: Las columnas que no estén aquí se mostrarán por defecto (no se oculta nada)
