@@ -522,7 +522,7 @@ data_source = st.session_state.data_source
 if df is not None:
     # Definir 4 pestañas explícitamente para evitar errores
     tab_dashboard, tab_search, tab_main, tab_downloads = st.tabs([
-        "📊 Dashboard ", 
+        "📊 Panel Principal", 
         "🔍 Buscador de Pacientes", 
         "📋 Tabla Principal", 
         "📥 Descargas"
@@ -1058,7 +1058,8 @@ if df is not None:
 
         if p_sel:
             try:
-                matches = df_base[df_base['PACIENTES'] == p_sel].copy()
+                # Usar df_s (filtrado por estado) en lugar de df_base para que las terapias coincidan con el filtro
+                matches = df_s[df_s['PACIENTES'] == p_sel].copy()
                 labels = []
                 idx_map_s = {}
                 
@@ -1082,11 +1083,12 @@ if df is not None:
                     p_data_found = df_base.loc[idx_map_s[t_sel]]
                 
                 if p_data_found is not None:
-                    st.markdown(f"### 👤 {p_sel}")
+                    st.markdown(f"### 👤 {p_data_found.get('PACIENTES', p_sel)}")
                     st.caption(f"Detalle: {t_sel}")
                     
-                    with st.expander("🛠️ Ver Datos Crudos"):
-                        st.json(p_data_found.to_dict())
+                    if IS_LOCAL:
+                        with st.expander("🛠️ Ver Datos Crudos"):
+                            st.json(p_data_found.to_dict())
 
                     c1, c2, c3 = st.columns(3)
                     with c1:
