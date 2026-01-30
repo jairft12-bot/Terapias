@@ -1151,6 +1151,12 @@ if df is not None:
                         df_tl = pd.DataFrame(tl)
                         st.scatter_chart(df_tl, x="Fecha", y="Ses", size=100)
                         st.success(f"✅ Última sesión: {df_tl['Fecha'].max().strftime('%d/%m/%Y')}")
+                        
+                        # NUEVA TABLA DE SESIONES (Solicitada)
+                        with st.expander("📅 Ver Detalle de Fechas"):
+                            # Seleccionar y renombrar columnas para la vista
+                            df_view = df_tl[["Ses", "Fmt"]].rename(columns={"Ses": "Sesión", "Fmt": "Fecha"})
+                            st.dataframe(df_view, hide_index=True, use_container_width=True)
                     else:
                         st.warning("⚠️ No hay fechas registradas o el formato es incompatible.")
             except Exception as e:
