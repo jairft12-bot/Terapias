@@ -1185,8 +1185,28 @@ if df is not None:
         st.caption(f"Fuente de datos: {data_source}")
         st.info("ℹ️ Modo Lectura: La edición está desactivada en la versión pública.")
         
+        # Configuración "Ejecutiva" para las columnas clave
+        # Nota: Las columnas que no estén aquí se mostrarán por defecto (no se oculta nada)
+        executive_config = {
+            "PACIENTES": st.column_config.TextColumn("Paciente", width="medium", help="Nombre del paciente"),
+            "DNI": st.column_config.TextColumn("Documento", width="small"),
+            "TLF": st.column_config.TextColumn("Teléfono", width="small"),
+            "DISTRITO": st.column_config.TextColumn("Distrito", width="small"),
+            "DIRECCION": st.column_config.TextColumn("Dirección", width="medium"),
+            "ESPECIALIDAD": st.column_config.TextColumn("Especialidad", width="medium"),
+            "PROGRAMAS": st.column_config.TextColumn("Programa", width="medium"),
+            "CANT.": st.column_config.NumberColumn("Cant.", help="Total de sesiones", format="%d"),
+            "ESTADO": st.column_config.TextColumn("Estado Actual", width="small"),
+            "CLINICA": st.column_config.TextColumn("Clínica", width="small"),
+        }
+
         # Tabla de solo lectura - Respetando filtros
-        st.dataframe(df_final, use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_final, 
+            use_container_width=True, 
+            hide_index=True,
+            column_config=executive_config
+        )
 
     
     with tab_downloads:
