@@ -1195,19 +1195,23 @@ if df is not None:
         st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
         
         # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
+        # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
         @st.dialog("🔒 Requiere Contraseña")
         def modal_password():
             st.write("Para generar y descargar este reporte sensible, ingresa la clave.")
-            pwd_input = st.text_input("Contraseña:", type="password")
-            if st.button("Desbloquear"):
-                if pwd_input == "1234":
-                    st.session_state["auth_downloads"] = True
-                    st.rerun()
-                else:
-                    st.error("❌ Contraseña incorrecta")
+            with st.form("frm_auth_down"):
+                pwd_input = st.text_input("Contraseña:", type="password")
+                if st.form_submit_button("Desbloquear"):
+                    if pwd_input == "1234":
+                        st.session_state["auth_downloads"] = True
+                        st.session_state["auto_gen_report"] = True # Bandera para auto-ejecutar
+                        st.rerun()
+                    else:
+                        st.error("❌ Contraseña incorrecta")
 
         # Estado de autenticacion local para descargas
         is_auth_down = st.session_state.get("auth_downloads", False)
+        should_auto_run = st.session_state.get("auto_gen_report", False)
         
         if not is_auth_down:
             # Botón disparador del modal
@@ -1219,7 +1223,8 @@ if df is not None:
             st.success("🔓 Acceso concedido")
             
             # Lógica de "Explosión" (Unpivot/Melt inteligente)
-            if st.button("🚀 (YA DESBLOQUEADO) Generar Reporte Detallado", key="btn_gen_real"):
+            # Se ejecuta si: Se acaba de desbloquear (Auto) O si se da clic manual
+            if should_auto_run or st.button("🚀 (Re) Generar Reporte Detallado", key="btn_gen_real"):
                 with st.spinner("Procesando todas las sesiones..."):
                     exploded_data = []
                     
