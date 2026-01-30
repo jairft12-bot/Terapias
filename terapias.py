@@ -1196,18 +1196,21 @@ if df is not None:
         
         # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
         # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
+        # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
         @st.dialog("🔒 Requiere Contraseña")
         def modal_password():
             st.write("Para generar y descargar este reporte sensible, ingresa la clave.")
-            with st.form("frm_auth_down"):
-                pwd_input = st.text_input("Contraseña:", type="password")
-                if st.form_submit_button("Desbloquear"):
-                    if pwd_input == "1234":
-                        st.session_state["auth_downloads"] = True
-                        st.session_state["auto_gen_report"] = True # Bandera para auto-ejecutar
-                        st.rerun()
-                    else:
-                        st.error("❌ Contraseña incorrecta")
+            
+            # Usando inputs directos sin form para evitar problemas de refresh
+            pwd_input = st.text_input("Contraseña:", type="password", key="pwd_modal_input")
+            
+            if st.button("Desbloquear", key="btn_modal_unlock"):
+                if pwd_input == "1234":
+                    st.session_state["auth_downloads"] = True
+                    st.session_state["auto_gen_report"] = True
+                    st.rerun()
+                else:
+                    st.error("❌ Contraseña incorrecta")
 
         # Estado de autenticacion local para descargas
         is_auth_down = st.session_state.get("auth_downloads", False)
