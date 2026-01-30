@@ -1136,7 +1136,14 @@ if df is not None:
                     f_o = r.get('FECHA OM', 'S/F')
                     # VALIDACIÓN ROBUSTA DE FECHAS (Previene ValueError en NaT)
                     f_s = f_o.strftime('%d/%m/%Y') if (pd.notnull(f_o) and hasattr(f_o, 'strftime')) else str(f_o)
-                    l = f"{esp} (Inicio: {f_s})"
+                    
+                    # Agregar Pendientes al título
+                    pend = r.get('PENDIENTES', 0)
+                    # Intentar formatear a int si es posible
+                    try: pend = int(pend)
+                    except: pass
+                    
+                    l = f"{esp} (Inicio: {f_s}) | Pendientes: {pend}"
                     o_l, c = l, 2
                     while l in idx_map_s:
                         l = f"{o_l} ({c})"; c += 1
