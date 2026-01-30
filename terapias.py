@@ -1214,8 +1214,9 @@ if df is not None:
                         df_tl = pd.DataFrame(tl)
                         
                         # Reemplazamos scatter_chart por Altair explícito para controlar etiquetas en ESPAÑOL
+                        # Usamos formato numérico %d/%m/%Y en el eje para evitar "January", "February" etc.
                         c_asist = alt.Chart(df_tl).mark_circle(size=100, color="#28a745").encode(
-                            x=alt.X('Fecha', title='Fecha de Asistencia'),
+                            x=alt.X('Fecha', title='Fecha de Asistencia', axis=alt.Axis(format='%d/%m/%Y')),
                             y=alt.Y('Ses', title='Sesión', sort=None), # sort=None para mantener orden S1, S2...
                             tooltip=[
                                 alt.Tooltip('Fecha', title='Fecha', format='%d/%m/%Y'),
