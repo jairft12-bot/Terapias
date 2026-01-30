@@ -529,7 +529,7 @@ if df is not None:
         st.warning("🔒 Esta sección está protegida.")
         pwd = st.text_input("Contraseña:", type="password", key=f"pwd_{key_suffix}")
         if st.button("Acceder", key=f"btn_{key_suffix}"):
-            if pwd == "viva1a123":
+            if pwd == "1234":
                 st.session_state[auth_key] = True
                 st.rerun()
             else:
@@ -1191,12 +1191,31 @@ if df is not None:
 
     
     with tab_downloads:
-        if check_access("downloads"):
-            st.header("📥 Descarga de Reporte Detallado")
-            st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
-            
+        st.header("📥 Descarga de Reporte Detallado")
+        st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
+        
+        # Estado de autenticacion local para descargas
+        is_auth_down = st.session_state.get("auth_downloads", False)
+        
+        # Boton "Falso" o disparador si no esta autenticado
+        if not is_auth_down:
+            st.warning("🔒 Para generar este reporte se requiere contraseña de administrador.")
+            col_pwd1, col_pwd2 = st.columns([2,1])
+            with col_pwd1:
+                pwd_down = st.text_input("🔑 Contraseña:", type="password", key="pwd_down_inline")
+            with col_pwd2:
+                st.write("") # Spacer
+                if st.button("🔓 Desbloquear y Generar"):
+                    if pwd_down == "1234":
+                        st.session_state["auth_downloads"] = True
+                        st.rerun()
+                    else:
+                        st.error("❌ Contraseña incorrecta")
+        
+        # Si esta autenticado (o acaba de estarlo), mostramos el boton real / proceso
+        if is_auth_down:
             # Lógica de "Explosión" (Unpivot/Melt inteligente)
-            if st.button("🚀 Generar Reporte Detallado"):
+            if st.button("🚀 Generar Reporte Detallado", key="btn_gen_real"):
                 with st.spinner("Procesando todas las sesiones..."):
                     exploded_data = []
                     
@@ -1208,7 +1227,7 @@ if df is not None:
                             "DNI": row.get('DNI', ''),
                             "TELEFONO": row.get('TLF', ''),
                             "DISTRITO": row.get('DISTRITO', ''),
-                            "DIRECCION": row.get('DIRECCION', ''), # Agregado a petición
+                            "DIRECCION": row.get('DIRECCION', ''), 
                             "ESPECIALIDAD": row.get('ESPECIALIDAD', ''),
                             "PROGRAMA": row.get('PROGRAMAS', ''),
                             "TOTAL_ORDEN": row.get('CANT.', 0),
@@ -1263,13 +1282,11 @@ if df is not None:
                             worksheet.set_column('A:A', 30) # Paciente
                             worksheet.set_column('B:I', 15) # Otros (Ajustado rango para incluír Dirección)
                         
-                        st.success(f"✅ Reporte generado: {len(df_export)} filas individuales.")
+                        st.success(f"✅ Reporte generado: {len(df_export)} filas individuales. (Sesión Autenticada)")
                         
                         # Botón de descarga real
                         st.download_button(
                             label="💾 DESCARGAR EXCEL (VERTICAL)",
-                            data=buffer.getvalue(),
-                            file_name="reporte_sesiones_vertical.xlsx",
                             mime="application/vnd.ms-excel"
                         )
                     else:
