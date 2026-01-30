@@ -13,10 +13,10 @@ import ssl
 # Configuración de página
 st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS PARA OCULTAR MENÚS (MODO PRIVADO) ---
-# --- CSS PARA OCULTAR MENÚS (MODO PRIVADO) ---
+# --- CSS PARA GLOBAL (MODO PRIVADO + SIDEBAR) ---
 hide_streamlit_style = """
 <style>
+/* --- 1. Ocultar Elementos de Streamlit (White Label) --- */
 /* Oculta el menú flotante inferior derecho */
 [data-testid="stToolbar"] {
     display: none;
@@ -31,33 +31,30 @@ footer {
 header {
     visibility: hidden;
 }
-</style>
-"""
-            
-            /* --- SIDEBAR "EXECUTIVE MIDNIGHT" (PODER Y ELEGANCIA) --- */
-            
-            section[data-testid="stSidebar"] {
-                /* Gradiente "Midnight City": Oscuro, serio y ejecutivo */
-                background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364) !important;
-                color: #ffffff !important;
-                border-right: 1px solid rgba(255,255,255,0.05) !important;
-            }
-            
-            /* Textos dentro del sidebar */
-            section[data-testid="stSidebar"] h1, 
-            section[data-testid="stSidebar"] h2, 
-            section[data-testid="stSidebar"] h3, 
-            section[data-testid="stSidebar"] label, 
-            section[data-testid="stSidebar"] .stMarkdown,
-            section[data-testid="stSidebar"] p,
-            section[data-testid="stSidebar"] li,
-            section[data-testid="stSidebar"] span,
-            section[data-testid="stSidebar"] div {
-                color: #e2e8f0 !important; /* Blanco "Humo" para no cansar la vista */
-                font-family: 'Segoe UI', sans-serif !important;
-            }
-            
-            /* --- BOTÓN "RECARGAR" (ESTILO SLIM TECH) --- */
+
+/* --- 2. SIDEBAR "EXECUTIVE MIDNIGHT" (PODER Y ELEGANCIA) --- */
+section[data-testid="stSidebar"] {
+    /* Gradiente "Midnight City": Oscuro, serio y ejecutivo */
+    background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364) !important;
+    color: #ffffff !important;
+    border-right: 1px solid rgba(255,255,255,0.05) !important;
+}
+
+/* Textos dentro del sidebar */
+section[data-testid="stSidebar"] h1, 
+section[data-testid="stSidebar"] h2, 
+section[data-testid="stSidebar"] h3, 
+section[data-testid="stSidebar"] label, 
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] li,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div {
+    color: #e2e8f0 !important; /* Blanco "Humo" para no cansar la vista */
+    font-family: 'Segoe UI', sans-serif !important;
+}
+
+/* --- BOTÓN "RECARGAR" (ESTILO SLIM TECH) --- */
             /* Diseño más fino, menos tosco, elegante */
             section[data-testid="stSidebar"] .stButton button,
             section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {
