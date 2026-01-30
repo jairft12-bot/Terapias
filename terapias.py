@@ -1214,10 +1214,14 @@ if df is not None:
                         df_tl = pd.DataFrame(tl)
                         
                         # Reemplazamos scatter_chart por Altair explícito para controlar etiquetas en ESPAÑOL
-                        # Usamos formato numérico %d/%m/%Y en el eje para evitar "January", "February" etc.
-                        c_asist = alt.Chart(df_tl).mark_circle(size=100, color="#28a745").encode(
-                            x=alt.X('Fecha', title='Fecha de Asistencia', axis=alt.Axis(format='%d/%m/%Y')),
-                            y=alt.Y('Ses', title='Sesión', sort=None), # sort=None para mantener orden S1, S2...
+                        # Usamos 'labelExpr' de Vega-Lite para forzar los meses en Español sin depender del Locale del servidor
+                        spanish_months = "['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']"
+                        # Expr: "15 de Enero del 2025"
+                        axis_expr = f"date(datum.value) + ' de ' + {spanish_months}[month(datum.value)] + ' del ' + year(datum.value)"
+                        
+                        c_asist = alt.Chart(df_tl).mark_circle(size=120).encode( # Color por defecto (azul/theme)
+                            x=alt.X('Fecha', title='Fecha de Asistencia', axis=alt.Axis(labelExpr=axis_expr)),
+                            y=alt.Y('Ses', title='Sesión', sort=None), 
                             tooltip=[
                                 alt.Tooltip('Fecha', title='Fecha', format='%d/%m/%Y'),
                                 alt.Tooltip('Ses', title='Sesión')
