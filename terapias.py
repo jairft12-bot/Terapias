@@ -1194,49 +1194,32 @@ if df is not None:
         st.header("📥 Descarga de Reporte Detallado")
         st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
         
-        # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
-        # Callback para manejar la validación ANTES del rerun
-        def validate_password():
-            # Accedemos al valor del input por su key en session_state
-            pwd_entered = st.session_state.get("pwd_modal_input", "")
-            if pwd_entered == "12345":
-                st.session_state["auth_downloads"] = True
-                st.session_state["auto_gen_report"] = True
-                # No es necesario st.rerun() dentro del callback, streamlit lo hace auto
-            else:
-                st.session_state["auth_error_msg"] = "❌ Contraseña incorrecta"
-
-        @st.dialog("🔒 Requiere Contraseña")
-        def modal_password():
-            st.write("Para generar y descargar este reporte sensible, ingresa la clave.")
-            
-            # Input vinculado a session_state
-            st.text_input("Contraseña:", type="password", key="pwd_modal_input")
-            
-            # Mostrar error si existe (gestionado por callback)
-            if "auth_error_msg" in st.session_state:
-                st.error(st.session_state["auth_error_msg"])
-                # Limpiar error para siguiente intento
-                del st.session_state["auth_error_msg"]
-            
-            # El botón llama al callback
-            st.button("Desbloquear", on_click=validate_password)
-
         # Estado de autenticacion local para descargas
         is_auth_down = st.session_state.get("auth_downloads", False)
         should_auto_run = st.session_state.get("auto_gen_report", False)
         
+        # --- Lógica de Autenticación con Popover (Más estable) ---
         if not is_auth_down:
-            # Botón disparador del modal
-            if st.button("🚀 Generar Reporte Detallado"):
-                modal_password()
+            # Popover actúa como un botón que despliega un mini-modal flotante
+            with st.popover("� Generar Reporte Detallado"):
+                st.write("🔒 **Seguridad**")
+                st.caption("Ingresa la clave de administrador (12345)")
+                
+                pwd_pop = st.text_input("Contraseña:", type="password", key="pwd_popover")
+                
+                if st.button("Desbloquear", key="btn_pop_unlock"):
+                    if pwd_pop == "12345":
+                        st.session_state["auth_downloads"] = True
+                        st.session_state["auto_gen_report"] = True
+                        st.rerun()
+                    else:
+                        st.error("❌ Contraseña incorrecta")
         
         else:
-            # Si YA está autenticado, mostramos el botón real y la lógica
+            # Si YA está autenticado, mostramos mensaje y lógica
             st.success("🔓 Acceso concedido")
             
             # Lógica de "Explosión" (Unpivot/Melt inteligente)
-            # Se ejecuta si: Se acaba de desbloquear (Auto) O si se da clic manual
             if should_auto_run or st.button("🚀 (Re) Generar Reporte Detallado", key="btn_gen_real"):
                 with st.spinner("Procesando todas las sesiones..."):
                     exploded_data = []
