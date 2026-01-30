@@ -314,16 +314,39 @@ def load_data(timestamp_trigger):
             if os.path.exists(LOCAL_PATH):
                 # Check mod time
                 mod_time = os.path.getmtime(LOCAL_PATH)
-                age_min = (time.time() - mod_time) / 60
-                
                 # FORCE STRING FOR ID COLUMNS to preserve leading zeros
                 # Intentamos cubrir variantes comunes
-                cols_str = {'DNI': str, 'dni': str, 'DNI ': str, 'ID': str, 'id': str, 'CODIGO': str}
+                cols_str = {
+                    'DNI': str, 'dn': str, 'DNI ': str, 
+                    'ID': str, 'id': str, 
+                    'CODIGO': str, 
+                    'DOCUMENTO': str, 'DOC': str,
+                    'TLF': str, 'TELEFONO': str
+                }
                 df = pd.read_excel(LOCAL_PATH, sheet_name=SHEET_NAME, engine='openpyxl', converters=cols_str)
                 if df is not None:
                      # 1. Normalizar columnas
                      df.columns = df.columns.astype(str).str.upper().str.strip()
-                     # 2. Normalizar datos
+                     
+                     # 2. LIMPIEZA ESPECÍFICA DE IDs (Quitar .0 o .0000)
+                     # A veces Excel lee como float y al convertir a string queda "123.0"
+                     import re
+                     def clean_id_value(val):
+                         if pd.isna(val): return ""
+                         s = str(val).strip()
+                         # Regex para quitar .0, .00, .000000 al final de un numero
+                         # Solo si es puramente numérico seguido de decimal cero
+                         if re.match(r'^\d+\.0+$', s):
+                             return s.split('.')[0]
+                         return s
+
+                     # Columnas candidatas a ser IDs
+                     target_cols = ['DNI', 'ID', 'DOCUMENTO', 'TLF', 'TELEFONO', 'CODIGO']
+                     for col in target_cols:
+                         if col in df.columns:
+                             df[col] = df[col].map(clean_id_value)
+
+                     # 3. Normalizar resto de datos
                      df = df.map(clean_cell)
                      
                 data_source = f"💻 Disco Local (Antigüedad: {int(age_min)} min)"
