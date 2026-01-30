@@ -801,7 +801,7 @@ if df is not None:
         else:
             total_global_terapias = len(df_base)
 
-        kpi2.metric("Terapias Totales", total_global_terapias, "Terapias")
+        kpi2.metric("Ordenes", total_global_terapias, "Terapias")
         
         # 2. CAPTION: Detalle del Filtro (Filtro Actual)
         if filter_active:
