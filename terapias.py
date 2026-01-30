@@ -1199,10 +1199,34 @@ if df is not None:
             "ESTADO": st.column_config.TextColumn("Estado Actual", width="small"),
             "CLINICA": st.column_config.TextColumn("Clínica", width="small"),
         }
+        
+        # --- ESTILO VISUAL (Pandas Styler) ---
+        # Función para dar color de fondo según el estado (Estilo Semáforo Ejecutivo)
+        def color_kpi_status(val):
+            if not isinstance(val, str): return ''
+            
+            v = val.upper()
+            # Verde (Positivo/Terminado)
+            if 'TERMINMADO' in v or 'FINALIZADO' in v or 'ASISTI' in v or 'COMPLET' in v:
+                return 'background-color: #d1e7dd; color: #0f5132; font-weight: 600;' 
+            # Rojo/Rosado (Urgente/Pendiente)
+            elif 'PENDIENTE' in v or 'ESPERA' in v or 'CANCEL' in v:
+                return 'background-color: #f8d7da; color: #842029; font-weight: 600;'
+            # Azul (En Proceso)
+            elif 'PROCESO' in v or 'AGENDA' in v or 'INICIAD' in v:
+                return 'background-color: #cff4fc; color: #055160; font-weight: 600;'
+            
+            return '' # Neutro
 
-        # Tabla de solo lectura - Respetando filtros
+        # Aplicamos el estilo si existe la columna ESTADO
+        if 'ESTADO' in df_final.columns:
+            styled_df = df_final.style.map(color_kpi_status, subset=['ESTADO'])
+        else:
+            styled_df = df_final
+
+        # Tabla de solo lectura - Respetando filtros y estilos
         st.dataframe(
-            df_final, 
+            styled_df, 
             use_container_width=True, 
             hide_index=True,
             column_config=executive_config
