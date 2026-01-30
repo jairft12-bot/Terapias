@@ -765,7 +765,11 @@ if df is not None:
                         st.dataframe(df_show_stag[cols_stag], hide_index=True, use_container_width=True)
 
         # --- 1. KPIS (TARJETAS) ---
-        kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+        # Usar container para limpiar viz previa
+        kpi_holder = st.empty()
+        
+        with kpi_holder.container():
+            kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
         
         # KPI 1: Pacientes (Patrón Ejecutivo Global)
         col_dni = 'DNI' if 'DNI' in df_base.columns else 'PACIENTES'
@@ -787,6 +791,8 @@ if df is not None:
                 texto_periodo = f" en {filt_month_name if filt_month_name != 'Todos' else ''} {filt_year if filt_year != 'Todos' else ''}".strip()
             
             kpi1.caption(f"📌 {total_final_pacientes} {label_p}{texto_periodo}")
+        else:
+            kpi1.caption(" ") # Mantiene el espacio ocupado para evitar reseteos sucios
        
         # KPI 2: Agendamiento (Patrón Ejecutivo Global)
         # 1. VALOR PRINCIPAL: Global Total
@@ -810,6 +816,8 @@ if df is not None:
                 texto_periodo = f" en {filt_month_name if filt_month_name != 'Todos' else ''} {filt_year if filt_year != 'Todos' else ''}".strip()
                 
             kpi2.caption(f"📌 {total_final_terapias} {label_s}{texto_periodo}")
+        else:
+             kpi2.caption(" ")
 
 
 
@@ -820,6 +828,8 @@ if df is not None:
             if filter_active:
                 label_ses = "sesión" if int(total_programado_final) == 1 else "sesiones"
                 kpi3.caption(f"📌 {int(total_programado_final)} {label_ses}")
+            else:
+                 kpi3.caption(" ")
             
             # KPI 4: Sesiones Ejecutadas (Global %)
             kpi4.metric(
@@ -829,6 +839,8 @@ if df is not None:
             )
             if filter_active:
                 kpi4.caption(f"📌 {int(total_ejecutadas_final)} realizadas")
+            else:
+                 kpi4.caption(" ")
             
             # KPI 5: Sesiones Pendientes (Global %)
             kpi5.metric(
@@ -839,6 +851,8 @@ if df is not None:
             )
             if filter_active:
                 kpi5.caption(f"📌 {int(total_sesiones_saldo_final)} por realizar")
+            else:
+                 kpi5.caption(" ")
                  
         except Exception as e:
             st.error(f"Error en KPIs de volumen: {e}")
