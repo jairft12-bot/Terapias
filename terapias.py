@@ -1182,12 +1182,11 @@ if df is not None:
             st.info("💡 Selecciona un paciente para ver su historial completo.")
 
     with tab_main:
-        if check_access("main"):
-            st.caption(f"Fuente de datos: {data_source}")
-            st.info("ℹ️ Modo Lectura: La edición está desactivada en la versión pública.")
-            
-            # Tabla de solo lectura - Respetando filtros
-            st.dataframe(df_final, use_container_width=True, hide_index=True)
+        st.caption(f"Fuente de datos: {data_source}")
+        st.info("ℹ️ Modo Lectura: La edición está desactivada en la versión pública.")
+        
+        # Tabla de solo lectura - Respetando filtros
+        st.dataframe(df_final, use_container_width=True, hide_index=True)
 
     
     with tab_downloads:
