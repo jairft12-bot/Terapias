@@ -1194,28 +1194,32 @@ if df is not None:
         st.header("📥 Descarga de Reporte Detallado")
         st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
         
+        # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
+        @st.dialog("🔒 Requiere Contraseña")
+        def modal_password():
+            st.write("Para generar y descargar este reporte sensible, ingresa la clave.")
+            pwd_input = st.text_input("Contraseña:", type="password")
+            if st.button("Desbloquear"):
+                if pwd_input == "1234":
+                    st.session_state["auth_downloads"] = True
+                    st.rerun()
+                else:
+                    st.error("❌ Contraseña incorrecta")
+
         # Estado de autenticacion local para descargas
         is_auth_down = st.session_state.get("auth_downloads", False)
         
-        # Boton "Falso" o disparador si no esta autenticado
         if not is_auth_down:
-            st.warning("🔒 Para generar este reporte se requiere contraseña de administrador.")
-            col_pwd1, col_pwd2 = st.columns([2,1])
-            with col_pwd1:
-                pwd_down = st.text_input("🔑 Contraseña:", type="password", key="pwd_down_inline")
-            with col_pwd2:
-                st.write("") # Spacer
-                if st.button("🔓 Desbloquear y Generar"):
-                    if pwd_down == "1234":
-                        st.session_state["auth_downloads"] = True
-                        st.rerun()
-                    else:
-                        st.error("❌ Contraseña incorrecta")
+            # Botón disparador del modal
+            if st.button("🚀 Generar Reporte Detallado"):
+                modal_password()
         
-        # Si esta autenticado (o acaba de estarlo), mostramos el boton real / proceso
-        if is_auth_down:
+        else:
+            # Si YA está autenticado, mostramos el botón real y la lógica
+            st.success("🔓 Acceso concedido")
+            
             # Lógica de "Explosión" (Unpivot/Melt inteligente)
-            if st.button("🚀 Generar Reporte Detallado", key="btn_gen_real"):
+            if st.button("🚀 (YA DESBLOQUEADO) Generar Reporte Detallado", key="btn_gen_real"):
                 with st.spinner("Procesando todas las sesiones..."):
                     exploded_data = []
                     
@@ -1287,6 +1291,8 @@ if df is not None:
                         # Botón de descarga real
                         st.download_button(
                             label="💾 DESCARGAR EXCEL (VERTICAL)",
+                            data=buffer.getvalue(),
+                            file_name="reporte_sesiones_vertical.xlsx",
                             mime="application/vnd.ms-excel"
                         )
                     else:
