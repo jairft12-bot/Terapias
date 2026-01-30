@@ -316,7 +316,10 @@ def load_data(timestamp_trigger):
                 mod_time = os.path.getmtime(LOCAL_PATH)
                 age_min = (time.time() - mod_time) / 60
                 
-                df = pd.read_excel(LOCAL_PATH, sheet_name=SHEET_NAME, engine='openpyxl')
+                # FORCE STRING FOR ID COLUMNS to preserve leading zeros
+                # Intentamos cubrir variantes comunes
+                cols_str = {'DNI': str, 'dni': str, 'DNI ': str, 'ID': str, 'id': str, 'CODIGO': str}
+                df = pd.read_excel(LOCAL_PATH, sheet_name=SHEET_NAME, engine='openpyxl', converters=cols_str)
                 if df is not None:
                      # 1. Normalizar columnas
                      df.columns = df.columns.astype(str).str.upper().str.strip()
@@ -774,9 +777,8 @@ if df is not None:
                              summary_text = " | ".join([f"{k}: {v}" for k,v in counts_summary.items()])
                              st.caption(f"📊 Desglose: {summary_text}")
                         
-                        # Formatear ID
-                        if col_id_excel in df_show_stag.columns and pd.api.types.is_numeric_dtype(df_show_stag[col_id_excel]):
-                             df_show_stag[col_id_excel] = df_show_stag[col_id_excel].fillna(0).astype(int).astype(str)
+                        # (Código eliminado que forzaba int y rompía leading zeros en el ID) 
+                        # if col_id_excel in df_show_stag.columns ...
                         
                         st.dataframe(df_show_stag[cols_stag], hide_index=True, use_container_width=True)
 
