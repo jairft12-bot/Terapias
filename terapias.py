@@ -520,6 +520,22 @@ hora_lectura = st.session_state.hora_lectura
 data_source = st.session_state.data_source
 
 if df is not None:
+    # --- AUTH HELPER ---
+    def check_access(key_suffix):
+        auth_key = f"auth_{key_suffix}"
+        if st.session_state.get(auth_key, False):
+            return True
+        
+        st.warning("🔒 Esta sección está protegida.")
+        pwd = st.text_input("Contraseña:", type="password", key=f"pwd_{key_suffix}")
+        if st.button("Acceder", key=f"btn_{key_suffix}"):
+            if pwd == "viva1a123":
+                st.session_state[auth_key] = True
+                st.rerun()
+            else:
+                st.error("❌ Contraseña incorrecta")
+        return False
+
     # Definir 4 pestañas explícitamente para evitar errores
     tab_dashboard, tab_search, tab_main, tab_downloads = st.tabs([
         "📊 Panel Principal", 
@@ -1166,96 +1182,98 @@ if df is not None:
             st.info("💡 Selecciona un paciente para ver su historial completo.")
 
     with tab_main:
-        st.caption(f"Fuente de datos: {data_source}")
-        st.info("� Modo Lectura: La edición está desactivada en la versión pública.")
-        
-        # Tabla de solo lectura - Respetando filtros
-        st.dataframe(df_final, use_container_width=True, hide_index=True)
+        if check_access("main"):
+            st.caption(f"Fuente de datos: {data_source}")
+            st.info("ℹ️ Modo Lectura: La edición está desactivada en la versión pública.")
+            
+            # Tabla de solo lectura - Respetando filtros
+            st.dataframe(df_final, use_container_width=True, hide_index=True)
 
     
     with tab_downloads:
-        st.header("📥 Descarga de Reporte Detallado")
-        st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
-        
-        # Lógica de "Explosión" (Unpivot/Melt inteligente)
-        if st.button("🚀 Generar Reporte Detallado"):
-            with st.spinner("Procesando todas las sesiones..."):
-                exploded_data = []
-                
-                # Iterar por cada orden de terapia (Respetando filtros)
-                for idx, row in df_final.iterrows():
-                    # Datos base del paciente
-                    base_info = {
-                        "PACIENTE": row.get('PACIENTES', ''),
-                        "DNI": row.get('DNI', ''),
-                        "TELEFONO": row.get('TLF', ''),
-                        "DISTRITO": row.get('DISTRITO', ''),
-                        "DIRECCION": row.get('DIRECCION', ''), # Agregado a petición
-                        "ESPECIALIDAD": row.get('ESPECIALIDAD', ''),
-                        "PROGRAMA": row.get('PROGRAMAS', ''),
-                        "TOTAL_ORDEN": row.get('CANT.', 0),
-                        "ESTADO_ORDEN": row.get('ESTADO', '')
-                    }
+        if check_access("downloads"):
+            st.header("📥 Descarga de Reporte Detallado")
+            st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
+            
+            # Lógica de "Explosión" (Unpivot/Melt inteligente)
+            if st.button("🚀 Generar Reporte Detallado"):
+                with st.spinner("Procesando todas las sesiones..."):
+                    exploded_data = []
                     
-                    # Cuántas sesiones deberia tener
-                    try:
-                        cant_sesiones = int(row.get('CANT.', 0))
-                    except:
-                        cant_sesiones = 0
+                    # Iterar por cada orden de terapia (Respetando filtros)
+                    for idx, row in df_final.iterrows():
+                        # Datos base del paciente
+                        base_info = {
+                            "PACIENTE": row.get('PACIENTES', ''),
+                            "DNI": row.get('DNI', ''),
+                            "TELEFONO": row.get('TLF', ''),
+                            "DISTRITO": row.get('DISTRITO', ''),
+                            "DIRECCION": row.get('DIRECCION', ''), # Agregado a petición
+                            "ESPECIALIDAD": row.get('ESPECIALIDAD', ''),
+                            "PROGRAMA": row.get('PROGRAMAS', ''),
+                            "TOTAL_ORDEN": row.get('CANT.', 0),
+                            "ESTADO_ORDEN": row.get('ESTADO', '')
+                        }
                         
-                    # Generar una fila por cada sesión teórica (1 hasta Cantidad)
-                    for i in range(1, cant_sesiones + 1):
-                        info = base_info.copy()
-                        info['NUM_SESION'] = i
-                        
-                        # Buscar fecha en columna "1", "2", etc
-                        col_name = str(i)
-                        fecha_val = row.get(col_name, None)
-                        
-                        # Procesar fecha
-                        fecha_str = ""
-                        estado_sesion = "PENDIENTE"
-                        
-                        if pd.notna(fecha_val):
-                            if isinstance(fecha_val, datetime.datetime):
-                                fecha_str = fecha_val.strftime('%d/%m/%Y')
-                                estado_sesion = "ASISTIÓ"
-                            elif isinstance(fecha_val, str):
-                                # Intento de parseo rápido
-                                if len(fecha_val) > 4: 
-                                    fecha_str = fecha_val
-                                    estado_sesion = "ASISTIÓ (Texto)"
-                        
-                        info['FECHA_SESION'] = fecha_str
-                        info['ESTADO_SESION'] = estado_sesion
-                        
-                        exploded_data.append(info)
-                
-                # Crear DataFrame final
-                if exploded_data:
-                    df_export = pd.DataFrame(exploded_data)
+                        # Cuántas sesiones deberia tener
+                        try:
+                            cant_sesiones = int(row.get('CANT.', 0))
+                        except:
+                            cant_sesiones = 0
+                            
+                        # Generar una fila por cada sesión teórica (1 hasta Cantidad)
+                        for i in range(1, cant_sesiones + 1):
+                            info = base_info.copy()
+                            info['NUM_SESION'] = i
+                            
+                            # Buscar fecha en columna "1", "2", etc
+                            col_name = str(i)
+                            fecha_val = row.get(col_name, None)
+                            
+                            # Procesar fecha
+                            fecha_str = ""
+                            estado_sesion = "PENDIENTE"
+                            
+                            if pd.notna(fecha_val):
+                                if isinstance(fecha_val, datetime.datetime):
+                                    fecha_str = fecha_val.strftime('%d/%m/%Y')
+                                    estado_sesion = "ASISTIÓ"
+                                elif isinstance(fecha_val, str):
+                                    # Intento de parseo rápido
+                                    if len(fecha_val) > 4: 
+                                        fecha_str = fecha_val
+                                        estado_sesion = "ASISTIÓ (Texto)"
+                            
+                            info['FECHA_SESION'] = fecha_str
+                            info['ESTADO_SESION'] = estado_sesion
+                            
+                            exploded_data.append(info)
                     
-                    # Convertir a Excel en memoria
-                    buffer = io.BytesIO()
-                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                        df_export.to_excel(writer, index=False, sheet_name='Detalle_Sesiones')
+                    # Crear DataFrame final
+                    if exploded_data:
+                        df_export = pd.DataFrame(exploded_data)
                         
-                        # Auto-ajustar columnas (opcional, básico)
-                        worksheet = writer.sheets['Detalle_Sesiones']
-                        worksheet.set_column('A:A', 30) # Paciente
-                        worksheet.set_column('B:I', 15) # Otros (Ajustado rango para incluír Dirección)
-                    
-                    st.success(f"✅ Reporte generado: {len(df_export)} filas individuales.")
-                    
-                    # Botón de descarga real
-                    st.download_button(
-                        label="💾 DESCARGAR EXCEL (VERTICAL)",
-                        data=buffer.getvalue(),
-                        file_name="reporte_sesiones_vertical.xlsx",
-                        mime="application/vnd.ms-excel"
-                    )
-                else:
-                    st.warning("No se encontraron datos para exportar.")
+                        # Convertir a Excel en memoria
+                        buffer = io.BytesIO()
+                        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                            df_export.to_excel(writer, index=False, sheet_name='Detalle_Sesiones')
+                            
+                            # Auto-ajustar columnas (opcional, básico)
+                            worksheet = writer.sheets['Detalle_Sesiones']
+                            worksheet.set_column('A:A', 30) # Paciente
+                            worksheet.set_column('B:I', 15) # Otros (Ajustado rango para incluír Dirección)
+                        
+                        st.success(f"✅ Reporte generado: {len(df_export)} filas individuales.")
+                        
+                        # Botón de descarga real
+                        st.download_button(
+                            label="💾 DESCARGAR EXCEL (VERTICAL)",
+                            data=buffer.getvalue(),
+                            file_name="reporte_sesiones_vertical.xlsx",
+                            mime="application/vnd.ms-excel"
+                        )
+                    else:
+                        st.warning("No se encontraron datos para exportar.")
 else:
     st.error(f"⚠️ No se pudieron cargar datos.")
     if error:
