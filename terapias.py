@@ -42,11 +42,13 @@ header, .stDeployButton {
 }
 
 /* Oculta el widget de estado (Running Man / Stop) y botones de Cloud */
+/* Oculta el widget de estado (Running Man / Stop) y botones de Cloud */
 [data-testid="stStatusWidget"], 
 [data-testid="stToolbar"], 
 #MainMenu, 
 .stApp > header,
-div[data-testid="stDecoration"] {
+div[data-testid="stDecoration"],
+div[class*="viewerBadge"] {
     display: none !important;
     visibility: hidden !important;
 }
