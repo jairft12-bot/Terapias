@@ -1195,22 +1195,32 @@ if df is not None:
         st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
         
         # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
-        # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
-        # --- MODAL DE AUTENTICACIÓN (Ventana Emergente) ---
+        # Callback para manejar la validación ANTES del rerun
+        def validate_password():
+            # Accedemos al valor del input por su key en session_state
+            pwd_entered = st.session_state.get("pwd_modal_input", "")
+            if pwd_entered == "12345":
+                st.session_state["auth_downloads"] = True
+                st.session_state["auto_gen_report"] = True
+                # No es necesario st.rerun() dentro del callback, streamlit lo hace auto
+            else:
+                st.session_state["auth_error_msg"] = "❌ Contraseña incorrecta"
+
         @st.dialog("🔒 Requiere Contraseña")
         def modal_password():
             st.write("Para generar y descargar este reporte sensible, ingresa la clave.")
             
-            # Usando inputs directos sin form para evitar problemas de refresh
-            pwd_input = st.text_input("Contraseña:", type="password", key="pwd_modal_input")
+            # Input vinculado a session_state
+            st.text_input("Contraseña:", type="password", key="pwd_modal_input")
             
-            if st.button("Desbloquear", key="btn_modal_unlock"):
-                if pwd_input == "1234":
-                    st.session_state["auth_downloads"] = True
-                    st.session_state["auto_gen_report"] = True
-                    st.rerun()
-                else:
-                    st.error("❌ Contraseña incorrecta")
+            # Mostrar error si existe (gestionado por callback)
+            if "auth_error_msg" in st.session_state:
+                st.error(st.session_state["auth_error_msg"])
+                # Limpiar error para siguiente intento
+                del st.session_state["auth_error_msg"]
+            
+            # El botón llama al callback
+            st.button("Desbloquear", on_click=validate_password)
 
         # Estado de autenticacion local para descargas
         is_auth_down = st.session_state.get("auth_downloads", False)
