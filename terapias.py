@@ -14,37 +14,25 @@ import ssl
 st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sidebar_state="expanded")
 
 # --- CSS PARA OCULTAR MENÚS (MODO PRIVADO) ---
+# --- CSS PARA OCULTAR MENÚS (MODO PRIVADO) ---
 hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {display: none !important;}
-            .stDeployButton {display: none !important;}
-            
-            /* Ocultar barra superior pero mantener espacio para el control del sidebar */
-            /* Ocultar barra superior pero mantener espacio para el control del sidebar */
-            /* Ocultar barra superior pero mantener interactividad */
-            /* Ocultar barra superior pero mantener interactividad */
-            /* Ocultar barra superior pero mantener interactividad */
-            /* Ocultar barra superior pero mantener interactividad */
-            /* SOLUCIÓN SAFE MODE: No tocar el contenedor del header, solo ocultar sus hijos molestos */
-            
-            /* Ocultar decoración coloreada superior */
-            [data-testid="stDecoration"] {
-                display: none !important;
-            }
-            
-            /* Ocultar menús del toolbar pero SALVAR el botón de expandir */
-            [data-testid="stToolbar"] {
-                visibility: hidden !important; /* No display:none porque mata al hijo */
-                background: transparent !important;
-                height: 0px !important;
-                pointer-events: none !important; 
-            }
-            
-            /* Ocultar el 'Running Man' status widget */
-            [data-testid="stStatusWidget"] {
-                display: none !important;
-            }
+<style>
+/* Oculta el menú flotante inferior derecho */
+[data-testid="stToolbar"] {
+    display: none;
+}
+
+/* Oculta el footer de Streamlit */
+footer {
+    visibility: hidden;
+}
+
+/* Oculta el header superior */
+header {
+    visibility: hidden;
+}
+</style>
+"""
             
             /* --- SIDEBAR "EXECUTIVE MIDNIGHT" (PODER Y ELEGANCIA) --- */
             
