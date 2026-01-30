@@ -1210,10 +1210,20 @@ if df is not None:
         st.caption(f"Fuente de datos: {data_source}")
         st.info("ℹ️ Modo Lectura: La edición está desactivada en la versión pública.")
         
+        
+        # --- ULTIMA LIMPIEZA DE FORMATO (ID/DNI) ---
+        # Aseguramos que los IDs se vean limpios sin .0 decimal
+        clean_cols = ['DNI', 'ID', 'DOCUMENTO', 'CODIGO']
+        for c in clean_cols:
+            if c in df_final.columns:
+                # Quitamos .0 al final transformando a string y reemplazando con Regex
+                df_final[c] = df_final[c].astype(str).str.replace(r'\.0+$', '', regex=True)
+
         # Configuración "Ejecutiva" para las columnas clave
         # Nota: Las columnas que no estén aquí se mostrarán por defecto (no se oculta nada)
         executive_config = {
             "PACIENTES": st.column_config.TextColumn("Paciente", width="medium", help="Nombre del paciente"),
+            "ID": st.column_config.TextColumn("ID", width="small"),
             "DNI": st.column_config.TextColumn("Documento", width="small"),
             "TLF": st.column_config.TextColumn("Teléfono", width="small"),
             "DISTRITO": st.column_config.TextColumn("Distrito", width="small"),
