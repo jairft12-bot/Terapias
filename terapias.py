@@ -355,7 +355,10 @@ def load_data(timestamp_trigger):
         except Exception as e:
             error_msg = f"{error_msg} | Local falló: {str(e)}"
             
-    timestamp = datetime.datetime.now().strftime('%H:%M:%S')
+    # Ajuste de Zona Horaria (UTC-5 para Lima/Bogotá)
+    # Streamlit Cloud usa UTC por defecto. Restamos 5 horas.
+    now_local = datetime.datetime.now() - datetime.timedelta(hours=5)
+    timestamp = now_local.strftime('%H:%M:%S')
     return df, error_msg, timestamp, data_source
 
 # --- CONFIGURACIÓN DE ENTORNO ---
