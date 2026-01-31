@@ -741,12 +741,21 @@ if df is not None:
                         cols_show_neg = []
                         if col_id_excel and col_id_excel != col_paciente: cols_show_neg.append(col_id_excel)
                         cols_show_neg.append(col_paciente)
-                        if col_terapia: cols_show_neg.append(col_terapia) # Agregado por solicitud
+                        if col_terapia: cols_show_neg.append(col_terapia) 
+                        
+                        # Agregado: CANT y REALIZADAS
+                        if col_cant_final: cols_show_neg.append(col_cant_final)
+                        if col_real_final: cols_show_neg.append(col_real_final)
+                        
                         if col_pend_final: cols_show_neg.append(col_pend_final)
                         
-                        # Formatear ID
+                        # Formatear ID y numéricos para evitar decimales feos en la tabla
                         if col_id_excel in df_neg.columns and pd.api.types.is_numeric_dtype(df_neg[col_id_excel]):
                              df_neg[col_id_excel] = df_neg[col_id_excel].fillna(0).astype(int).astype(str)
+                        
+                        for c_num in [col_cant_final, col_real_final, col_pend_final]:
+                            if c_num and c_num in df_neg.columns:
+                                df_neg[c_num] = pd.to_numeric(df_neg[c_num], errors='coerce').fillna(0).astype(int)
                              
                         st.dataframe(df_neg[cols_show_neg], hide_index=True, use_container_width=True)
                 
