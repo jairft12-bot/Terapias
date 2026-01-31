@@ -708,6 +708,23 @@ if df is not None:
         with alert_holder.container():
             if 'count_negativos' in locals() and count_negativos > 0:
                 st.error(f"⚠️ **Atención:** Se han detectado **{count_negativos} casos** de pacientes con sesiones en exceso (Saldo Negativo).")
+                with st.expander(f"Ver lista de {count_negativos} pacientes"):
+                    if col_pend_final:
+                        # Filtrar negativos
+                        df_neg = df_final[pd.to_numeric(df_final[col_pend_final], errors='coerce').fillna(0) < 0].copy()
+                        
+                        # Columnas a mostrar
+                        col_paciente = 'PACIENTES' if 'PACIENTES' in df_neg.columns else df_neg.columns[0]
+                        cols_show_neg = []
+                        if col_id_excel and col_id_excel != col_paciente: cols_show_neg.append(col_id_excel)
+                        cols_show_neg.append(col_paciente)
+                        if col_pend_final: cols_show_neg.append(col_pend_final)
+                        
+                        # Formatear ID
+                        if col_id_excel in df_neg.columns and pd.api.types.is_numeric_dtype(df_neg[col_id_excel]):
+                             df_neg[col_id_excel] = df_neg[col_id_excel].fillna(0).astype(int).astype(str)
+                             
+                        st.dataframe(df_neg[cols_show_neg], hide_index=True, use_container_width=True)
                 
             c_alert1, c_alert2 = st.columns(2)
             
