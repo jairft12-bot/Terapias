@@ -1099,18 +1099,35 @@ if df is not None:
                 unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
                 unique_counts.columns = ['Estado', 'Pacientes']
                 
-                # --- AGREGAR SESIONES PROGRAMADAS (Solicitud JAIR) ---
+                # --- AGREGAR SESIONES PROGRAMADAS Y REALIZADAS (Solicitud JAIR) ---
+                col_real_viz = None
+                for c in df_st_valid.columns:
+                    if "REALIZADAS" in str(c).upper():
+                        col_real_viz = c
+                        break
+                
                 prog_counts = df_st_valid.groupby('ESTADO')['CANT.'].sum().reset_index()
                 prog_counts.columns = ['Estado', 'Sesiones Programadas']
+                
+                real_counts = pd.DataFrame()
+                if col_real_viz:
+                    real_counts = df_st_valid.groupby('ESTADO')[col_real_viz].sum().reset_index()
+                    real_counts.columns = ['Estado', 'Sesiones Realizadas']
                 
                 # Merge de todas las métricas
                 final_stats = pd.merge(total_counts, unique_counts, on='Estado')
                 final_stats = pd.merge(final_stats, prog_counts, on='Estado')
+                if not real_counts.empty:
+                    final_stats = pd.merge(final_stats, real_counts, on='Estado')
                 
+                tooltip_list = ['Estado', 'Total Terapias', 'Pacientes', 'Sesiones Programadas']
+                if not real_counts.empty:
+                    tooltip_list.append('Sesiones Realizadas')
+
                 base_st = alt.Chart(final_stats).encode(
                     x=alt.X('Total Terapias', title='Total'),
                     y=alt.Y('Estado', sort='-x', title=''),
-                    tooltip=['Estado', 'Total Terapias', 'Pacientes', 'Sesiones Programadas']
+                    tooltip=tooltip_list
                 )
                 bars_st = base_st.mark_bar(color="#FF4B4B")
                 text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text='Total Terapias')
