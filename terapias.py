@@ -271,18 +271,16 @@ LOCAL_PATH = os.path.join(os.getcwd(), "Seguimiento de terapias .xlsx")
 ssl._create_default_https_context = ssl._create_unverified_context
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-def load_data(timestamp_trigger):
+def load_data(force_web=False):
     data_source = "Desconocido"
     df = None
     error_msg = None
     age_min = 0 
     
-    # --- ORDEN DE PRIORIDAD ---
-    # Si estamos en la PC de Jair (Local), intentamos LOCAL primero para velocidad instantánea.
-    # En la Nube, intentamos WEB primero.
-    
-    intentos = []
-    if IS_LOCAL:
+    # --- DETERMINAR ORDEN DE INTENTOS ---
+    if force_web:
+        intentos = ["web"]
+    elif IS_LOCAL:
         intentos = ["local", "web"]
     else:
         intentos = ["web", "local"]
@@ -292,20 +290,31 @@ def load_data(timestamp_trigger):
         
         if metodo == "web":
             try:
+                # Cache Busting Nuclear v3: Random string + multiple timestamps
+                import random
+                rand_id = random.randint(1000, 9999)
                 t_ms = int(time.time() * 1000)
-                dynamic_url = f"{DATA_URL}&t_ms={t_ms}"
+                # JAIR: SharePoint a veces demora. Forzamos descarga limpia.
+                dynamic_url = f"{DATA_URL}&t={t_ms}&r={rand_id}&download_fresh=1"
+                
                 headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0', 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/110.0.0.0',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0, post-check=0, pre-check=0', 
                     'Pragma': 'no-cache', 
-                    'Expires': '0'
+                    'Expires': '0',
+                    'DNT': '1'
                 }
-                response = requests.get(dynamic_url, headers=headers, verify=False, timeout=10)
+                
+                # Usar timeout más largo para SharePoint pero con reintentos? No, simple.
+                response = requests.get(dynamic_url, headers=headers, verify=False, timeout=15)
+                
                 if response.status_code == 200:
                     df = pd.read_excel(io.BytesIO(response.content), sheet_name=SHEET_NAME, engine='openpyxl')
                     df.columns = df.columns.astype(str).str.upper().str.strip()
                     df = df.map(lambda x: x.strip().upper() if isinstance(x, str) else x)
-                    data_source = "🌐 Web (SharePoint)"
+                    data_source = "🌐 SharePoint (Nube)"
+                else:
+                    error_msg = f"Web falló ({response.status_code})"
             except Exception as e:
                 error_msg = f"Web falló: {str(e)}"
                 
@@ -314,6 +323,8 @@ def load_data(timestamp_trigger):
                 if os.path.exists(LOCAL_PATH):
                     mod_time = os.path.getmtime(LOCAL_PATH)
                     age_min = (time.time() - mod_time) / 60
+                    # Si el archivo tiene menos de 10 segundos, es "fresco"
+                    
                     cols_str = {'DNI': str, 'ID': str, 'CODIGO': str, 'DOCUMENTO': str, 'TLF': str}
                     df = pd.read_excel(LOCAL_PATH, sheet_name=SHEET_NAME, engine='openpyxl', converters=cols_str)
                     if df is not None:
@@ -325,7 +336,7 @@ def load_data(timestamp_trigger):
                         for col in ['DNI', 'ID', 'DOCUMENTO', 'TLF', 'TELEFONO', 'CODIGO']:
                             if col in df.columns: df[col] = df[col].map(clean_id)
                         df = df.map(lambda x: x.strip().upper() if isinstance(x, str) else x)
-                        data_source = f"💻 Local (Hace {int(age_min)} min)"
+                        data_source = f"💻 PC Local ({int(age_min)} min)"
             except Exception as e:
                 error_msg = f"{error_msg} | Local falló: {str(e)}"
 
@@ -334,8 +345,8 @@ def load_data(timestamp_trigger):
     return df, error_msg, timestamp, data_source
 
 # --- HELPER PARA ACTUALIZAR TODO EL ESTADO ---
-def refresh_all_data():
-    df, err, ts, src = load_data(time.time())
+def refresh_all_data(force_web=False):
+    df, err, ts, src = load_data(force_web=force_web)
     st.session_state.df_cache = df
     st.session_state.error = err
     st.session_state.hora_lectura = ts
@@ -453,10 +464,15 @@ if df is not None:
         # 1. BOTÓN RECARGAR (Minimalista, arriba)
         # Usamos columnas para centrarlo o hacerlo menos ancho si se desea
         # El usuario pidió "mas chico" y "sin titulo"
-        col_reload, col_blank = st.columns([1, 0.01]) # Truco para ajustar ancho si fuera necesario, o simple button
-        if st.button("↻ Recargar", help="Forzar actualización de datos"):
-            refresh_all_data()
-            st.rerun()
+        col_rel1, col_rel2 = st.columns(2)
+        with col_rel1:
+            if st.button("↻ Recargar", help="Recarga estándar (Usa local si es Jair)"):
+                refresh_all_data(force_web=False)
+                st.rerun()
+        with col_rel2:
+            if st.button("⚡ Forzar Web", help="Ignora el archivo local y baja de SharePoint"):
+                refresh_all_data(force_web=True)
+                st.rerun()
             
         st.divider()
 
