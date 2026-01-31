@@ -995,9 +995,9 @@ if df is not None:
                 
                 if 'col_real_final' in locals() and col_real_final:
                     df_sp[col_real_final] = pd.to_numeric(df_sp[col_real_final], errors='coerce').fillna(0)
-                    agg_dict['Sesiones_Ejecutadas'] = (col_real_final, 'sum')
+                    agg_dict['Sesiones_Realizadas'] = (col_real_final, 'sum')
 
-                if 'Sesiones_Programadas' not in agg_dict and 'Sesiones_Ejecutadas' not in agg_dict:
+                if 'Sesiones_Programadas' not in agg_dict and 'Sesiones_Realizadas' not in agg_dict:
                     # Fallback si no hay columnas de sesiones
                     agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
                 
@@ -1138,13 +1138,30 @@ if df is not None:
                 if col_real_viz:
                     real_counts = df_st_viz.groupby('ESTADO')[col_real_viz].sum().reset_index()
                     real_counts.columns = ['Estado', 'Sesiones Realizadas']
+
+                # --- AGREGAR SESIONES PROGRAMADAS (Solicitud JAIR) ---
+                prog_counts = pd.DataFrame()
+                col_prog_viz = None
+                for c in df_st_viz.columns:
+                    if "CANT" in str(c).upper():
+                        col_prog_viz = c
+                        df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
+                        break
+                
+                if col_prog_viz:
+                    prog_counts = df_st_viz.groupby('ESTADO')[col_prog_viz].sum().reset_index()
+                    prog_counts.columns = ['Estado', 'Sesiones Programadas']
                 
                 # Merge de todas las métricas
                 final_stats = pd.merge(total_counts, unique_counts, on='Estado')
                 if not real_counts.empty:
                     final_stats = pd.merge(final_stats, real_counts, on='Estado')
+                if not prog_counts.empty:
+                    final_stats = pd.merge(final_stats, prog_counts, on='Estado')
                 
                 tooltip_list = ['Estado', 'Total Terapias', 'Pacientes']
+                if not prog_counts.empty:
+                    tooltip_list.append('Sesiones Programadas')
                 if not real_counts.empty:
                     tooltip_list.append('Sesiones Realizadas')
 
