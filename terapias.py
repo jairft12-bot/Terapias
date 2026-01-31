@@ -571,22 +571,18 @@ if df is not None:
         "📊 Panel Principal", 
         "🔍 Buscador de Pacientes", 
         "📋 Tabla Principal", 
-        "📥 Descargas"
+        "📥 Descargas",
+        "🔥 Mapa de Calor"
     ]
     
-    if IS_LOCAL:
-        tabs_list.append("🔥 Mapa de Calor")
-
-    # Unpacking de pestañas dinámico
+    # Unpacking de pestañas
     all_tabs = st.tabs(tabs_list)
     
     tab_dashboard = all_tabs[0]
     tab_search = all_tabs[1]
     tab_main = all_tabs[2]
     tab_downloads = all_tabs[3]
-    
-    # Tab opcional (solo local)
-    tab_map = all_tabs[4] if IS_LOCAL else None
+    tab_map = all_tabs[4]
     
     # Check si hay algun filtro activo
     filter_active = not (filt_year == "Todos" and filt_month_name == "Todos" and filt_patient == "Todos")
@@ -1125,31 +1121,74 @@ if df is not None:
         st.divider()
         
         # --- 3. GEOGRAFÍA ---
-        st.subheader("🗺️ Distribución por Distritos")
         if 'DISTRITO' in df_final.columns:
-             dist_data = df_final['DISTRITO'].value_counts().reset_index()
-             dist_data.columns = ['Distrito', 'Pacientes']
              
-             # Chart Altair mejorado (VERTICAL)
-             base_dist = alt.Chart(dist_data).encode(
-                 x=alt.X('Distrito', sort='-y', title='Distrito'),
-                 y=alt.Y('Pacientes', title='Total Pacientes'),
-                 tooltip=['Distrito', 'Pacientes']
+             # --- TOGGLE DISTRIBUCIÓN POR DISTRITO (Pedido Usuario) ---
+             st.subheader("🗺️ Distribución por Distritos")
+             
+             # Opciones de visualización
+             opt_map_mode = st.radio(
+                 "Métrica de Distribución:",
+                 ["Distribución Pacientes por Distrito (Únicos)", "Visitas por Distrito (Total)"],
+                 horizontal=True,
+                 index=0, # Por defecto Pacientes Únicos
+                 label_visibility="collapsed"
              )
              
-             bars_dist = base_dist.mark_bar(color="#FF4B4B")
+             dist_chart_title = "Distribución Pacientes por Distrito"
              
-             text_dist = base_dist.mark_text(
-                 align='center',
-                 baseline='bottom',
-                 dy=-5, # Encima de la barra
-                 color='black'
-             ).encode(
-                 text='Pacientes'
-             )
+             # Usamos 'DISTRITO' (ya normalizado en df_final si existe)
+             col_dist_viz = "DISTRITO"
+             col_p_viz = "PACIENTES"
              
-             final_dist = (bars_dist + text_dist).properties(height=400).interactive()
-             st.altair_chart(final_dist, use_container_width=True)
+             if col_dist_viz in df_final.columns:
+                 data_dist = None
+                 
+                 if "Únicos" in opt_map_mode:
+                     # Modo 1: Pacientes Únicos
+                     if col_p_viz in df_final.columns:
+                        # Agrupar por distrito y contar únicos
+                        data_dist = df_final.groupby(col_dist_viz)[col_p_viz].nunique().reset_index(name='CANTIDAD')
+                        data_dist = data_dist.sort_values('CANTIDAD', ascending=False)
+                        dist_chart_title = "Distribución Pacientes por Distrito"
+                 else:
+                     # Modo 2: Visitas Totales (Original)
+                     data_dist = df_final[col_dist_viz].value_counts().reset_index()
+                     data_dist.columns = [col_dist_viz, 'CANTIDAD']
+                     dist_chart_title = "Distribución por Distritos (Visitas Totales)"
+
+                 if data_dist is not None and not data_dist.empty:
+                     # Restaurar estilo original (Vertical + Rojo #FF4B4B)
+                     # Eje X = Distritos, Eje Y = Cantidad
+                     
+                     col_x_name = data_dist.columns[0] # Distrito
+                     
+                     bars_dist = alt.Chart(data_dist).mark_bar(color="#FF4B4B").encode(
+                        x=alt.X(col_x_name, sort='-y', title='Distrito'),
+                        y=alt.Y('CANTIDAD', title='Total Pacientes'),
+                        tooltip=[col_x_name, 'CANTIDAD']
+                     ).properties(title=dist_chart_title)
+                     
+                     text_dist = bars_dist.mark_text(
+                        align='center',
+                        baseline='bottom',
+                        dy=-5, # Encima de la barra
+                        color='black',
+                        fontWeight='bold',
+                        fontSize=12,
+                        clip=False # Evita que desaparezcan al borde
+                     ).encode(
+                        text=alt.Text('CANTIDAD', format='d')
+                     )
+                     
+                     # Aumentamos height a 600 para que el eje sea "más alto"
+                     # Agregamos config para que no desaparezcan etiquetas al solaparse (opcional)
+                     final_dist = (bars_dist + text_dist).properties(height=600).interactive()
+                     st.altair_chart(final_dist, use_container_width=True)
+                 else:
+                     st.info("No hay datos de distrito disponibles para graficar.")
+             else:
+                 st.warning("Columna DISTRITO no encontrada para generar gráfica.")
 
     with tab_search:
         st.header("🔍 Buscador de Pacientes")
@@ -1477,7 +1516,7 @@ if df is not None:
                         )
                     else:
                         st.warning("No se encontraron datos para exportar.")
-    if IS_LOCAL and tab_map:
+    if tab_map:
         with tab_map:
              # Pasamos df_final que ya tiene los filtros aplicados (Fechas/Pacientes)
              mapas.render_heatmap(df_final)
