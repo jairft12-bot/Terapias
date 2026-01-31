@@ -820,6 +820,13 @@ if df is not None:
                     df_stagnant['dias_pasados'] = (hoy - df_stagnant['temp_date']).dt.days
                     
                     mask_stagnant = (df_stagnant[col_realizadas] == 0) & (df_stagnant['dias_pasados'] >= 5)
+                    
+                    # --- FILTRO POR ESTADO (Solicitud JAIR): Solo Pendiente Agendamiento ---
+                    if col_estado:
+                         # Filtro flexible para capturar "PENDIENTE AGENDAMIENTO" o "PENDIENTE DE AGENDAMIENTO"
+                         mask_stagnant = mask_stagnant & (df_stagnant[col_estado].astype(str).str.upper().str.contains("PENDIENTE", na=False) & 
+                                                         df_stagnant[col_estado].astype(str).str.upper().str.contains("AGENDAMIENTO", na=False))
+                    
                     df_stag_final = df_stagnant[mask_stagnant]
                     count_stag = len(df_stag_final)
                     
