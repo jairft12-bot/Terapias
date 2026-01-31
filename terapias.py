@@ -75,43 +75,44 @@ hide_streamlit_style = """
                 font-family: 'Segoe UI', sans-serif !important;
             }
             
-            /* --- BOTONES "EXECUTIVE PREMIUM" --- */
-            /* Estilo ultra-limpio, serio y tecnológico */
+            /* --- BOTONES "SLIM EXECUTIVE" (ZERO-WRAP) --- */
+            /* Priorizamos que el texto no se rompa y se vea premium */
             section[data-testid="stSidebar"] .stButton button {
                 width: 100% !important;
-                background: rgba(255, 255, 255, 0.03) !important;
+                white-space: nowrap !important; /* NO ROMPER PALABRAS */
+                overflow: hidden !important;
+                
+                background: rgba(255, 255, 255, 0.02) !important;
                 color: #e2e8f0 !important;
-                border: 1px solid rgba(255, 255, 255, 0.2) !important;
-                border-radius: 6px !important;
+                border: 1px solid rgba(255, 255, 255, 0.15) !important;
+                border-radius: 4px !important;
                 
                 font-family: 'Inter', 'Segoe UI', sans-serif !important;
                 font-weight: 500 !important;
-                font-size: 0.85rem !important;
-                padding: 0.5rem 1rem !important;
+                font-size: 0.72rem !important; /* Tamaño optimizado para evitar wrap */
+                padding: 0.4rem 0.3rem !important; /* Padding horizontal mínimo */
                 
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-                text-transform: none !important; /* Más elegante sin uppercase forzado */
-                letter-spacing: 0.3px !important;
+                transition: all 0.25s ease !important;
+                text-transform: none !important;
+                letter-spacing: 0.2px !important;
             }
             
             section[data-testid="stSidebar"] .stButton button:hover {
-                background: rgba(255, 255, 255, 0.08) !important;
+                background: rgba(0, 212, 255, 0.05) !important;
                 border-color: #00d4ff !important;
-                color: #00d4ff !important;
-                box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2) !important;
-                transform: translateY(-2px) !important;
+                color: #ffffff !important;
+                box-shadow: 0 0 15px rgba(0, 212, 255, 0.1) !important;
             }
 
-            /* Botón Especial (Forzar Web) */
-            section[data-testid="stSidebar"] .stButton button:active {
-                transform: translateY(0px) !important;
-            }
-            
-            /* Diferenciación sutil para el segundo botón si se desea */
+            /* Botón "⚡ Forzar Web" (Acento Tecnológico) */
             [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] div:nth-child(2) button {
-                border-color: rgba(0, 212, 255, 0.4) !important;
+                border-color: rgba(0, 212, 255, 0.3) !important;
                 color: #00d4ff !important;
+                background: rgba(0, 212, 255, 0.02) !important;
+            }
+            [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] div:nth-child(2) button:hover {
+                background: rgba(0, 212, 255, 0.1) !important;
+                box-shadow: 0 0 20px rgba(0, 212, 255, 0.2) !important;
             }
 
             /* --- HEADER "FILTRO DE TIEMPO" COMPACTO --- */
