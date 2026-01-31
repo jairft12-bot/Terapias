@@ -1,3 +1,4 @@
+# Visor de Terapias v2.1 - Deploy Fix
 import streamlit as st
 import pandas as pd
 import io
@@ -13,8 +14,8 @@ import getpass
 import mapas # Importamos modulo local
 
 # --- CONFIGURACIÓN DE ENTORNO ---
-# Detectamos si estamos en local (PC de Jair)
-IS_LOCAL = "jair" in os.getcwd() or getpass.getuser() == "jair"
+# Detectamos si estamos en local (PC de Jair) de forma robusta
+IS_LOCAL = os.path.exists("/Users/jair/Desktop/terapias") or os.environ.get("USER") == "jair"
 
 # Configuración de página
 st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sidebar_state="expanded")
@@ -988,14 +989,18 @@ if df is not None:
                     'Total_Terapias': ('ESPECIALIDAD', 'count')
                 }
                 
-                # JAIR: Sumamos Sesiones Programadas (CANT) y Ejecutadas (REALIZADAS)
-                if 'col_cant_final' in locals() and col_cant_final:
-                    df_sp[col_cant_final] = pd.to_numeric(df_sp[col_cant_final], errors='coerce').fillna(0)
-                    agg_dict['Sesiones_Programadas'] = (col_cant_final, 'sum')
+                # JAIR: Sumamos Sesiones Programadas y Realizadas
+                # Buscamos columnas dinámicamente para mayor robustez
+                col_c = next((c for c in df_sp.columns if "CANT" in str(c).upper()), None)
+                col_r = next((c for c in df_sp.columns if "REALIZADAS" in str(c).upper() or "EJECUTADAS" in str(c).upper()), None)
+
+                if col_c:
+                    df_sp[col_c] = pd.to_numeric(df_sp[col_c], errors='coerce').fillna(0)
+                    agg_dict['Sesiones_Programadas'] = (col_c, 'sum')
                 
-                if 'col_real_final' in locals() and col_real_final:
-                    df_sp[col_real_final] = pd.to_numeric(df_sp[col_real_final], errors='coerce').fillna(0)
-                    agg_dict['Sesiones_Realizadas'] = (col_real_final, 'sum')
+                if col_r:
+                    df_sp[col_r] = pd.to_numeric(df_sp[col_r], errors='coerce').fillna(0)
+                    agg_dict['Sesiones_Realizadas'] = (col_r, 'sum')
 
                 if 'Sesiones_Programadas' not in agg_dict and 'Sesiones_Realizadas' not in agg_dict:
                     # Fallback si no hay columnas de sesiones
