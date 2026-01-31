@@ -706,6 +706,14 @@ if df is not None:
         alert_holder = st.empty()
         
         with alert_holder.container():
+            # Helper para encontrar columna ID (MOVIDO ARRIBA para que esté disponible para Negative Balance)
+            col_id_excel = None
+            for c in df_final.columns:
+                if str(c).upper().strip() in ['ID', 'Nº', 'NO', 'N.']:
+                    col_id_excel = c
+                    break
+            if not col_id_excel: col_id_excel = df_final.columns[0] # Fallback primera col
+
             if 'count_negativos' in locals() and count_negativos > 0:
                 st.error(f"⚠️ **Atención:** Se han detectado **{count_negativos} casos** de pacientes con sesiones en exceso (Saldo Negativo).")
                 with st.expander(f"Ver lista de {count_negativos} pacientes"):
@@ -728,13 +736,7 @@ if df is not None:
                 
             c_alert1, c_alert2 = st.columns(2)
             
-            # Helper para encontrar columna ID
-            col_id_excel = None
-            for c in df_final.columns:
-                if str(c).upper().strip() in ['ID', 'Nº', 'NO', 'N.']:
-                    col_id_excel = c
-                    break
-            if not col_id_excel: col_id_excel = df_final.columns[0] # Fallback primera col
+            # (Helper ID movido arriba)
     
             # 1. ALERTA IZQUIERDA: FINALIZACIÓN PRÓXIMA (<= 2 SESIONES)
             with c_alert1:
