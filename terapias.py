@@ -259,6 +259,9 @@ SHEET_NAME = "Seguimiento de terapias "
 
 
 
+# Configuración de Rutas y Archivos
+LOCAL_PATH = os.path.join(os.getcwd(), "Seguimiento de terapias .xlsx")
+
 # Configuración SSL
 ssl._create_default_https_context = ssl._create_unverified_context
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -267,56 +270,54 @@ def load_data(timestamp_trigger):
     data_source = "Desconocido"
     df = None
     error_msg = None
+    age_min = 0 # Default para evitar NameError
     
     # 1. INTENTO WEB (Tu enlace)
     try:
-        # Cache Busting "Nuclear Option"
-        # 1. Headers to tell server "I want fresh data"
-        # 2. Dynamic URL to force new request
-        timestamp_bust = int(time.time())
-        dynamic_url = f"{DATA_URL}&t={timestamp_bust}"
+        # Cache Busting "Nuclear Option" v2 (Solicitud JAIR para velocidad)
+        # 1. Headers to tell server/CDN "I want extremely fresh data"
+        # 2. Dynamic dual-timestamp URL to bypass any regional caching
+        t_ms = int(time.time() * 1000)
+        t_sec = int(time.time())
+        dynamic_url = f"{DATA_URL}&t_ms={t_ms}&t_sec={t_sec}"
         
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-            'Cache-Control': 'no-cache, no-store, must-revalidate', 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Cache-Control': 'no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0', 
             'Pragma': 'no-cache', 
-            'Expires': '0'
+            'Expires': '0',
+            'Surrogate-Control': 'no-store'
         }
         
-        response = requests.get(dynamic_url, headers=headers, verify=False, timeout=10)
+        # Session requests para persistencia/eficiencia
+        sess = requests.Session()
+        response = sess.get(dynamic_url, headers=headers, verify=False, timeout=12)
         
         if response.status_code == 200:
             df = pd.read_excel(io.BytesIO(response.content), sheet_name=SHEET_NAME, engine='openpyxl')
             
             # --- LIMPIEZA PROFUNDA ---
-            # 1. Normalizar columnas: Mayúsculas y sin espacios
             df.columns = df.columns.astype(str).str.upper().str.strip()
             
-            # 2. Normalizar datos: 
-            # - Convertir a string todo lo que sea texto para quitar espacios
-            # - Dejar NaNs como están (o convertirlos a un valor neutro si prefieres)
-            # - ESTADO especificamente suele dar problemas si trae espacios " FINALIZADO "
             def clean_cell(x):
                 if isinstance(x, str):
                     return x.strip().upper()
                 return x
                 
             df = df.map(clean_cell)
-            
-            data_source = "🌐 Web (Sin Caché)"
+            data_source = "🌐 Web (Nube Viva1A)"
         else:
              error_msg = f"Web falló con código: {response.status_code}"
     except Exception as e:
         error_msg = f"Web falló: {str(e)}"
 
-    # 2. INTENTO LOCAL (Si web falla)
+    # 2. INTENTO LOCAL (Si web falla o estamos en desarrollo offline)
     if df is None:
         try:
             if os.path.exists(LOCAL_PATH):
-                # Check mod time
                 mod_time = os.path.getmtime(LOCAL_PATH)
-                # FORCE STRING FOR ID COLUMNS to preserve leading zeros
-                # Intentamos cubrir variantes comunes
+                age_min = (time.time() - mod_time) / 60
+                
                 cols_str = {
                     'DNI': str, 'dn': str, 'DNI ': str, 
                     'ID': str, 'id': str, 
@@ -326,28 +327,25 @@ def load_data(timestamp_trigger):
                 }
                 df = pd.read_excel(LOCAL_PATH, sheet_name=SHEET_NAME, engine='openpyxl', converters=cols_str)
                 if df is not None:
-                     # 1. Normalizar columnas
                      df.columns = df.columns.astype(str).str.upper().str.strip()
                      
-                     # 2. LIMPIEZA ESPECÍFICA DE IDs (Quitar .0 o .0000)
-                     # A veces Excel lee como float y al convertir a string queda "123.0"
                      import re
                      def clean_id_value(val):
                          if pd.isna(val): return ""
                          s = str(val).strip()
-                         # Regex para quitar .0, .00, .000000 al final de un numero
-                         # Solo si es puramente numérico seguido de decimal cero
                          if re.match(r'^\d+\.0+$', s):
                              return s.split('.')[0]
                          return s
 
-                     # Columnas candidatas a ser IDs
                      target_cols = ['DNI', 'ID', 'DOCUMENTO', 'TLF', 'TELEFONO', 'CODIGO']
                      for col in target_cols:
                          if col in df.columns:
                              df[col] = df[col].map(clean_id_value)
 
-                     # 3. Normalizar resto de datos
+                     def clean_cell(x):
+                         if isinstance(x, str):
+                             return x.strip().upper()
+                         return x
                      df = df.map(clean_cell)
                      
                 data_source = f"💻 Disco Local (Antigüedad: {int(age_min)} min)"
@@ -357,7 +355,6 @@ def load_data(timestamp_trigger):
             error_msg = f"{error_msg} | Local falló: {str(e)}"
             
     # Ajuste de Zona Horaria (UTC-5 para Lima/Bogotá)
-    # Streamlit Cloud usa UTC por defecto. Restamos 5 horas.
     now_local = datetime.datetime.now() - datetime.timedelta(hours=5)
     timestamp = now_local.strftime('%H:%M:%S')
     return df, error_msg, timestamp, data_source
@@ -514,36 +511,41 @@ if df is not None:
         opciones_pacientes = ["Todos"] + sorted_patients
         filt_patient = st.selectbox("Seleccionar Paciente:", opciones_pacientes, index=0)
 
-        # 4. CONTROLES LOCALES (Discretos abajo)
-        if IS_LOCAL:
-            st.divider()
-            st.caption("🛠️ Modo Local")
-            enable_autorefresh = st.checkbox("✅ Auto-escaneo", value=True)
-            if enable_autorefresh:
-                refresh_interval = st.select_slider(
-                    "Segundos:",
-                    options=[90, 120, 180, 240, 300, 600],
-                    value=90
-                )
+        # 4. CONTROLES DE ACTUALIZACIÓN
+        st.divider()
+        st.caption("⚙️ Configuración de Datos")
+        enable_autorefresh = st.checkbox("✅ Auto-Recarga Automática", value=False, help="La app se refrescará sola cada cierto tiempo.")
+        if enable_autorefresh:
+            refresh_interval = st.select_slider(
+                "Frecuencia (Segundos):",
+                options=[60, 90, 120, 180, 240, 300, 600],
+                value=120
+            )
+            # Solo ejecutamos el fragmento de refresh si está activado
+            if 'last_auto_refresh' not in st.session_state:
+                st.session_state.last_auto_refresh = time.time()
+            
+            if (time.time() - st.session_state.last_auto_refresh) > refresh_interval:
+                st.session_state.last_auto_refresh = time.time()
+                st.session_state.df_cache, error, ts, source = load_data(time.time())
+                st.rerun()
 
 
-# Área Principal - Indicadores
-# Solo mostramos la fuente de datos si estamos en local o si hay error
-if  IS_LOCAL:
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        if error:
-            st.error(f"❌ Error: {error}")
-        elif IS_LOCAL:
-             if "Web" in data_source:
-                 st.success(f"☁️ {data_source}")
-             elif "Local" in data_source:
-                 st.warning(f" {data_source}")
-             else:
-                 st.error("❌ Sin Conexión")
-        
-    with col2:
-        st.write(f"🕒 **Actualizado:** {hora_lectura}")
+# Área Principal - Indicadores de Estado
+col_status_info, col_time_info = st.columns([3, 1])
+with col_status_info:
+    if error:
+        st.error(f"❌ Error de Carga: {error}")
+    else:
+        # Mostrar fuente de datos elegante
+        if "Web" in data_source:
+            st.success(f"✔️ Conectado a Excel Online ({data_source})")
+        else:
+            st.warning(f"⚠️ Usando copia local ({data_source})")
+    
+with col_time_info:
+    st.info(f"🕒 **Actualizado:** {hora_lectura}")
+
 df = st.session_state.df_cache
 error = st.session_state.error
 hora_lectura = st.session_state.hora_lectura
