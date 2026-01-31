@@ -566,14 +566,27 @@ if df is not None:
                 st.error("❌ Contraseña incorrecta")
         return False
 
-    # Definir 4 pestañas explícitamente para evitar errores
-    tab_dashboard, tab_search, tab_main, tab_downloads, tab_map = st.tabs([
+    # Definir pestañas dinámicamente según entorno
+    tabs_list = [
         "📊 Panel Principal", 
         "🔍 Buscador de Pacientes", 
         "📋 Tabla Principal", 
-        "📥 Descargas",
-        "🔥 Mapa de Calor"
-    ])
+        "📥 Descargas"
+    ]
+    
+    if IS_LOCAL:
+        tabs_list.append("🔥 Mapa de Calor")
+
+    # Unpacking de pestañas dinámico
+    all_tabs = st.tabs(tabs_list)
+    
+    tab_dashboard = all_tabs[0]
+    tab_search = all_tabs[1]
+    tab_main = all_tabs[2]
+    tab_downloads = all_tabs[3]
+    
+    # Tab opcional (solo local)
+    tab_map = all_tabs[4] if IS_LOCAL else None
     
     # Check si hay algun filtro activo
     filter_active = not (filt_year == "Todos" and filt_month_name == "Todos" and filt_patient == "Todos")
@@ -1464,9 +1477,10 @@ if df is not None:
                         )
                     else:
                         st.warning("No se encontraron datos para exportar.")
-    with tab_map:
-         # Pasamos df_final que ya tiene los filtros aplicados (Fechas/Pacientes)
-         mapas.render_heatmap(df_final)
+    if IS_LOCAL and tab_map:
+        with tab_map:
+             # Pasamos df_final que ya tiene los filtros aplicados (Fechas/Pacientes)
+             mapas.render_heatmap(df_final)
 
 else:
     st.error(f"⚠️ No se pudieron cargar datos.")
