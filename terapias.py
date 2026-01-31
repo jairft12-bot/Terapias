@@ -506,7 +506,7 @@ if df is not None:
         # 4. CONTROLES DE ACTUALIZACIÓN
         st.divider()
         st.caption("⚙️ Configuración de Datos")
-        enable_autorefresh = st.checkbox("✅ Auto-Recarga Automática", value=False, help="La app se refrescará sola cada cierto tiempo.")
+        enable_autorefresh = st.checkbox("✅ Auto-Recarga Automática", value=True, help="La app se refrescará sola cada cierto tiempo.")
         if enable_autorefresh:
             refresh_interval = st.select_slider(
                 "Frecuencia (Segundos):",
