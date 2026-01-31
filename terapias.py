@@ -13,69 +13,63 @@ import ssl
 # Configuración de página
 st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS PARA GLOBAL (MODO PRIVADO + SIDEBAR) ---
+# --- CSS PARA OCULTAR MENÚS (MODO PRIVADO) ---
 hide_streamlit_style = """
-<style>
-/* --- 1. Ocultar Elementos de Streamlit (White Label) --- */
-/* Oculta el menú flotante inferior derecho */
-[data-testid="stToolbar"] {
-    display: none !important;
-}
-
-/* Oculta el footer de Streamlit */
-footer {
-    display: none !important;
-    visibility: hidden !important;
-}
-
-/* Oculta el header superior y botones */
-header, .stDeployButton {
-    display: none !important;
-    visibility: hidden !important;
-}
-
-/* Oculta menú de acciones de gráficas (Vega/Altair) */
-.vega-actions, summary.action-menu {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-}
-
-/* Oculta el widget de estado (Running Man / Stop) y botones de Cloud */
-/* Oculta el widget de estado (Running Man / Stop) y botones de Cloud */
-[data-testid="stStatusWidget"], 
-[data-testid="stToolbar"], 
-#MainMenu, 
-.stApp > header,
-div[data-testid="stDecoration"],
-div[class*="viewerBadge"] {
-    display: none !important;
-    visibility: hidden !important;
-}
-
-/* --- 2. SIDEBAR "EXECUTIVE MIDNIGHT" (PODER Y ELEGANCIA) --- */
-section[data-testid="stSidebar"] {
-    /* Gradiente "Midnight City": Oscuro, serio y ejecutivo */
-    background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364) !important;
-    color: #ffffff !important;
-    border-right: 1px solid rgba(255,255,255,0.05) !important;
-}
-
-/* Textos dentro del sidebar */
-section[data-testid="stSidebar"] h1, 
-section[data-testid="stSidebar"] h2, 
-section[data-testid="stSidebar"] h3, 
-section[data-testid="stSidebar"] label, 
-section[data-testid="stSidebar"] .stMarkdown,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] li,
-section[data-testid="stSidebar"] span,
-section[data-testid="stSidebar"] div {
-    color: #e2e8f0 !important; /* Blanco "Humo" para no cansar la vista */
-    font-family: 'Segoe UI', sans-serif !important;
-}
-
-/* --- BOTÓN "RECARGAR" (ESTILO SLIM TECH) --- */
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {display: none !important;}
+            .stDeployButton {display: none !important;}
+            
+            /* Ocultar barra superior pero mantener espacio para el control del sidebar */
+            /* Ocultar barra superior pero mantener espacio para el control del sidebar */
+            /* Ocultar barra superior pero mantener interactividad */
+            /* Ocultar barra superior pero mantener interactividad */
+            /* Ocultar barra superior pero mantener interactividad */
+            /* Ocultar barra superior pero mantener interactividad */
+            /* SOLUCIÓN SAFE MODE: No tocar el contenedor del header, solo ocultar sus hijos molestos */
+            
+            /* Ocultar decoración coloreada superior */
+            [data-testid="stDecoration"] {
+                display: none !important;
+            }
+            
+            /* Ocultar menús del toolbar pero SALVAR el botón de expandir */
+            [data-testid="stToolbar"] {
+                visibility: hidden !important; /* No display:none porque mata al hijo */
+                background: transparent !important;
+                height: 0px !important;
+                pointer-events: none !important; 
+            }
+            
+            /* Ocultar el 'Running Man' status widget */
+            [data-testid="stStatusWidget"] {
+                display: none !important;
+            }
+            
+            /* --- SIDEBAR "EXECUTIVE MIDNIGHT" (PODER Y ELEGANCIA) --- */
+            
+            section[data-testid="stSidebar"] {
+                /* Gradiente "Midnight City": Oscuro, serio y ejecutivo */
+                background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364) !important;
+                color: #ffffff !important;
+                border-right: 1px solid rgba(255,255,255,0.05) !important;
+            }
+            
+            /* Textos dentro del sidebar */
+            section[data-testid="stSidebar"] h1, 
+            section[data-testid="stSidebar"] h2, 
+            section[data-testid="stSidebar"] h3, 
+            section[data-testid="stSidebar"] label, 
+            section[data-testid="stSidebar"] .stMarkdown,
+            section[data-testid="stSidebar"] p,
+            section[data-testid="stSidebar"] li,
+            section[data-testid="stSidebar"] span,
+            section[data-testid="stSidebar"] div {
+                color: #e2e8f0 !important; /* Blanco "Humo" para no cansar la vista */
+                font-family: 'Segoe UI', sans-serif !important;
+            }
+            
+            /* --- BOTÓN "RECARGAR" (ESTILO SLIM TECH) --- */
             /* Diseño más fino, menos tosco, elegante */
             section[data-testid="stSidebar"] .stButton button,
             section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {
@@ -708,124 +702,128 @@ if df is not None:
             pass
 
         # --- ZONA DE ALERTAS (SIDE-BY-SIDE) ---
-        if 'count_negativos' in locals() and count_negativos > 0:
-            st.error(f"⚠️ **Atención:** Se han detectado **{count_negativos} casos** de pacientes con sesiones en exceso (Saldo Negativo).")
-            
-        c_alert1, c_alert2 = st.columns(2)
+        # Wrapper para evitar "Ghost Elements" opacos al cambiar filtros
+        alert_holder = st.empty()
         
-        # Helper para encontrar columna ID
-        col_id_excel = None
-        for c in df_final.columns:
-            if str(c).upper().strip() in ['ID', 'Nº', 'NO', 'N.']:
-                col_id_excel = c
-                break
-        if not col_id_excel: col_id_excel = df_final.columns[0] # Fallback primera col
-
-        # 1. ALERTA IZQUIERDA: FINALIZACIÓN PRÓXIMA (<= 2 SESIONES)
-        with c_alert1:
-            col_pend_alert = None
-            col_cant_alert = None
+        with alert_holder.container():
+            if 'count_negativos' in locals() and count_negativos > 0:
+                st.error(f"⚠️ **Atención:** Se han detectado **{count_negativos} casos** de pacientes con sesiones en exceso (Saldo Negativo).")
+                
+            c_alert1, c_alert2 = st.columns(2)
             
+            # Helper para encontrar columna ID
+            col_id_excel = None
             for c in df_final.columns:
-                c_upper = str(c).upper().strip()
-                if "PENDIENTES" in c_upper: col_pend_alert = c
-                if "CANT" in c_upper: col_cant_alert = c
+                if str(c).upper().strip() in ['ID', 'Nº', 'NO', 'N.']:
+                    col_id_excel = c
+                    break
+            if not col_id_excel: col_id_excel = df_final.columns[0] # Fallback primera col
+    
+            # 1. ALERTA IZQUIERDA: FINALIZACIÓN PRÓXIMA (<= 2 SESIONES)
+            with c_alert1:
+                col_pend_alert = None
+                col_cant_alert = None
+                
+                for c in df_final.columns:
+                    c_upper = str(c).upper().strip()
+                    if "PENDIENTES" in c_upper: col_pend_alert = c
+                    if "CANT" in c_upper: col_cant_alert = c
+                        
+                if col_pend_alert and col_cant_alert:
+                    df_alert = df_final.copy()
+                    df_alert[col_pend_alert] = pd.to_numeric(df_alert[col_pend_alert], errors='coerce').fillna(0)
+                    df_alert[col_cant_alert] = pd.to_numeric(df_alert[col_cant_alert], errors='coerce').fillna(0)
                     
-            if col_pend_alert and col_cant_alert:
-                df_alert = df_final.copy()
-                df_alert[col_pend_alert] = pd.to_numeric(df_alert[col_pend_alert], errors='coerce').fillna(0)
-                df_alert[col_cant_alert] = pd.to_numeric(df_alert[col_cant_alert], errors='coerce').fillna(0)
+                    mask_near = (df_alert[col_pend_alert] > 0) & (df_alert[col_pend_alert] <= 2)
+                    df_near = df_alert[mask_near]
+                    count_near = len(df_near)
+                    
+                    if count_near > 0:
+                        st.warning(f"🔔 **Alerta:** {count_near} pacientes por finalizar (≤ 2 sesiones).")
+                        with st.expander(f"Ver lista de {count_near} pacientes"):
+                            col_paciente = 'PACIENTES' if 'PACIENTES' in df_alert.columns else df_alert.columns[0]
+                            # Si col_id_excel es el mismo que paciente, no repetirlo
+                            cols_show = []
+                            if col_id_excel != col_paciente: cols_show.append(col_id_excel)
+                            cols_show.append(col_paciente)
+                            
+                            col_terapia = 'ESPECIALIDAD' if 'ESPECIALIDAD' in df_alert.columns else ('PROGRAMAS' if 'PROGRAMAS' in df_alert.columns else None)
+                            
+                            df_display = df_near.copy()
+                            df_display['Progreso'] = df_display.apply(lambda x: f"{int(x[col_cant_alert] - x[col_pend_alert])}/{int(x[col_cant_alert])}", axis=1)
+                            
+                            if col_terapia: cols_show.append(col_terapia)
+                            cols_show.append('Progreso')
+                            
+                            # Formatear ID sin decimales si es numerico
+                            if col_id_excel in df_display.columns and pd.api.types.is_numeric_dtype(df_display[col_id_excel]):
+                                 df_display[col_id_excel] = df_display[col_id_excel].fillna(0).astype(int).astype(str)
+    
+                            st.dataframe(df_display[cols_show], hide_index=True, use_container_width=True)
+    
+            # 2. ALERTA DERECHA: INICIO RETRASADO (0 REALIZADAS, > 5 DÍAS)
+            with c_alert2:
+                col_realizadas = None
+                col_fecha_om = None 
+                col_estado = None
                 
-                mask_near = (df_alert[col_pend_alert] > 0) & (df_alert[col_pend_alert] <= 2)
-                df_near = df_alert[mask_near]
-                count_near = len(df_near)
+                for c in df_final.columns:
+                    c_upper = str(c).upper().strip()
+                    if "REALIZADAS" in c_upper: col_realizadas = c
+                    if "FECHA OM" in c_upper: col_fecha_om = c
+                    if "ESTADO" in c_upper: col_estado = c
                 
-                if count_near > 0:
-                    st.warning(f"🔔 **Alerta:** {count_near} pacientes por finalizar (≤ 2 sesiones).")
-                    with st.expander(f"Ver lista de {count_near} pacientes"):
-                        col_paciente = 'PACIENTES' if 'PACIENTES' in df_alert.columns else df_alert.columns[0]
-                        # Si col_id_excel es el mismo que paciente, no repetirlo
-                        cols_show = []
-                        if col_id_excel != col_paciente: cols_show.append(col_id_excel)
-                        cols_show.append(col_paciente)
-                        
-                        col_terapia = 'ESPECIALIDAD' if 'ESPECIALIDAD' in df_alert.columns else ('PROGRAMAS' if 'PROGRAMAS' in df_alert.columns else None)
-                        
-                        df_display = df_near.copy()
-                        df_display['Progreso'] = df_display.apply(lambda x: f"{int(x[col_cant_alert] - x[col_pend_alert])}/{int(x[col_cant_alert])}", axis=1)
-                        
-                        if col_terapia: cols_show.append(col_terapia)
-                        cols_show.append('Progreso')
-                        
-                        # Formatear ID sin decimales si es numerico
-                        if col_id_excel in df_display.columns and pd.api.types.is_numeric_dtype(df_display[col_id_excel]):
-                             df_display[col_id_excel] = df_display[col_id_excel].fillna(0).astype(int).astype(str)
-
-                        st.dataframe(df_display[cols_show], hide_index=True, use_container_width=True)
-
-        # 2. ALERTA DERECHA: INICIO RETRASADO (0 REALIZADAS, > 5 DÍAS)
-        with c_alert2:
-            col_realizadas = None
-            col_fecha_om = None 
-            col_estado = None
-            
-            for c in df_final.columns:
-                c_upper = str(c).upper().strip()
-                if "REALIZADAS" in c_upper: col_realizadas = c
-                if "FECHA OM" in c_upper: col_fecha_om = c
-                if "ESTADO" in c_upper: col_estado = c
-            
-            if not col_fecha_om and 'FECHA_CLAVE' in df_final.columns:
-                col_fecha_om = 'FECHA_CLAVE'
-
-            if col_realizadas and col_fecha_om:
-                df_stagnant = df_final.copy()
-                df_stagnant[col_realizadas] = pd.to_numeric(df_stagnant[col_realizadas], errors='coerce').fillna(0)
-                
-                df_stagnant['temp_date'] = pd.to_datetime(df_stagnant[col_fecha_om], errors='coerce', dayfirst=True)
-                hoy = datetime.datetime.now()
-                df_stagnant['dias_pasados'] = (hoy - df_stagnant['temp_date']).dt.days
-                
-                mask_stagnant = (df_stagnant[col_realizadas] == 0) & (df_stagnant['dias_pasados'] >= 5)
-                df_stag_final = df_stagnant[mask_stagnant]
-                count_stag = len(df_stag_final)
-                
-                if count_stag > 0:
-                    st.warning(f"⏳ **Alerta:** {count_stag} pacientes sin iniciar (> 5 días esperando).")
-                    with st.expander(f"Ver lista de {count_stag} pacientes"):
-                        col_paciente = 'PACIENTES' if 'PACIENTES' in df_stag_final.columns else df_stag_final.columns[0]
-                        
-                        # --- FILTRO POR ESTADO (Request JAIR) ---
-                        df_show_stag = df_stag_final.copy()
-                        df_show_stag['Esperando'] = df_show_stag['dias_pasados'].astype(int).astype(str) + " días"
-                        
-                        cols_stag = []
-                        if col_id_excel != col_paciente: cols_stag.append(col_id_excel)
-                        cols_stag.append(col_paciente)
-                        if col_estado: cols_stag.append(col_estado) 
-                        cols_stag.append('Esperando')
-                        
-                        # Lógica de Filtro Multiselect
-                        if col_estado and col_estado in df_show_stag.columns:
-                             unique_states = df_show_stag[col_estado].unique().tolist()
-                             # Crear st.multiselect
-                             selected_states = st.multiselect(
-                                 "Filtrar por Estado:",
-                                 options=unique_states,
-                                 default=unique_states
-                             )
-                             # Filtrar DF
-                             df_show_stag = df_show_stag[df_show_stag[col_estado].isin(selected_states)]
-                             
-                             # Mostrar conteos resumen rapidos
-                             counts_summary = df_stag_final[col_estado].value_counts().to_dict()
-                             summary_text = " | ".join([f"{k}: {v}" for k,v in counts_summary.items()])
-                             st.caption(f"📊 Desglose: {summary_text}")
-                        
-                        # (Código eliminado que forzaba int y rompía leading zeros en el ID) 
-                        # if col_id_excel in df_show_stag.columns ...
-                        
-                        st.dataframe(df_show_stag[cols_stag], hide_index=True, use_container_width=True)
+                if not col_fecha_om and 'FECHA_CLAVE' in df_final.columns:
+                    col_fecha_om = 'FECHA_CLAVE'
+    
+                if col_realizadas and col_fecha_om:
+                    df_stagnant = df_final.copy()
+                    df_stagnant[col_realizadas] = pd.to_numeric(df_stagnant[col_realizadas], errors='coerce').fillna(0)
+                    
+                    df_stagnant['temp_date'] = pd.to_datetime(df_stagnant[col_fecha_om], errors='coerce', dayfirst=True)
+                    hoy = datetime.datetime.now()
+                    df_stagnant['dias_pasados'] = (hoy - df_stagnant['temp_date']).dt.days
+                    
+                    mask_stagnant = (df_stagnant[col_realizadas] == 0) & (df_stagnant['dias_pasados'] >= 5)
+                    df_stag_final = df_stagnant[mask_stagnant]
+                    count_stag = len(df_stag_final)
+                    
+                    if count_stag > 0:
+                        st.warning(f"⏳ **Alerta:** {count_stag} pacientes sin iniciar (> 5 días esperando).")
+                        with st.expander(f"Ver lista de {count_stag} pacientes"):
+                            col_paciente = 'PACIENTES' if 'PACIENTES' in df_stag_final.columns else df_stag_final.columns[0]
+                            
+                            # --- FILTRO POR ESTADO (Request JAIR) ---
+                            df_show_stag = df_stag_final.copy()
+                            df_show_stag['Esperando'] = df_show_stag['dias_pasados'].astype(int).astype(str) + " días"
+                            
+                            cols_stag = []
+                            if col_id_excel != col_paciente: cols_stag.append(col_id_excel)
+                            cols_stag.append(col_paciente)
+                            if col_estado: cols_stag.append(col_estado) 
+                            cols_stag.append('Esperando')
+                            
+                            # Lógica de Filtro Multiselect
+                            if col_estado and col_estado in df_show_stag.columns:
+                                 unique_states = df_show_stag[col_estado].unique().tolist()
+                                 # Crear st.multiselect
+                                 selected_states = st.multiselect(
+                                     "Filtrar por Estado:",
+                                     options=unique_states,
+                                     default=unique_states
+                                 )
+                                 # Filtrar DF
+                                 df_show_stag = df_show_stag[df_show_stag[col_estado].isin(selected_states)]
+                                 
+                                 # Mostrar conteos resumen rapidos
+                                 counts_summary = df_stag_final[col_estado].value_counts().to_dict()
+                                 summary_text = " | ".join([f"{k}: {v}" for k,v in counts_summary.items()])
+                                 st.caption(f"📊 Desglose: {summary_text}")
+                            
+                            # (Código eliminado que forzaba int y rompía leading zeros en el ID) 
+                            # if col_id_excel in df_show_stag.columns ...
+                            
+                            st.dataframe(df_show_stag[cols_stag], hide_index=True, use_container_width=True)
 
         # --- 1. KPIS (TARJETAS) ---
         # Usar container para limpiar viz previa
