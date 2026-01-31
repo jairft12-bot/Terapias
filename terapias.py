@@ -1100,18 +1100,24 @@ if df is not None:
                 unique_counts.columns = ['Estado', 'Pacientes']
                 
                 # --- AGREGAR SESIONES PROGRAMADAS Y REALIZADAS (Solicitud JAIR) ---
+                df_st_viz = df_st_valid.copy()
+                
+                # Conversión segura a numérico para evitar TypeError: 'int' and 'str'
+                df_st_viz['CANT.'] = pd.to_numeric(df_st_viz['CANT.'], errors='coerce').fillna(0)
+                
                 col_real_viz = None
-                for c in df_st_valid.columns:
+                for c in df_st_viz.columns:
                     if "REALIZADAS" in str(c).upper():
                         col_real_viz = c
+                        df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
                         break
                 
-                prog_counts = df_st_valid.groupby('ESTADO')['CANT.'].sum().reset_index()
+                prog_counts = df_st_viz.groupby('ESTADO')['CANT.'].sum().reset_index()
                 prog_counts.columns = ['Estado', 'Sesiones Programadas']
                 
                 real_counts = pd.DataFrame()
                 if col_real_viz:
-                    real_counts = df_st_valid.groupby('ESTADO')[col_real_viz].sum().reset_index()
+                    real_counts = df_st_viz.groupby('ESTADO')[col_real_viz].sum().reset_index()
                     real_counts.columns = ['Estado', 'Sesiones Realizadas']
                 
                 # Merge de todas las métricas
