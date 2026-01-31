@@ -75,38 +75,43 @@ hide_streamlit_style = """
                 font-family: 'Segoe UI', sans-serif !important;
             }
             
-            /* --- BOTÓN "RECARGAR" (ESTILO SLIM TECH) --- */
-            /* Diseño más fino, menos tosco, elegante */
-            section[data-testid="stSidebar"] .stButton button,
-            section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {
+            /* --- BOTONES "EXECUTIVE PREMIUM" --- */
+            /* Estilo ultra-limpio, serio y tecnológico */
+            section[data-testid="stSidebar"] .stButton button {
                 width: 100% !important;
-                background-color: transparent !important; /* Fondo transparente elegante */
-                color: #00d4ff !important; /* Texto Neon */
-                border: 1px solid rgba(0, 212, 255, 0.5) !important; /* Borde fino sutil */
-                border-radius: 8px !important; /* Radio pequeño (no píldora) */
+                background: rgba(255, 255, 255, 0.03) !important;
+                color: #e2e8f0 !important;
+                border: 1px solid rgba(255, 255, 255, 0.2) !important;
+                border-radius: 6px !important;
                 
-                font-family: 'Segoe UI', sans-serif !important;
-                font-weight: 600 !important;
-                letter-spacing: 1px !important;
-                text-transform: uppercase !important;
-                font-size: 0.8rem !important; /* Texto más pequeño */
+                font-family: 'Inter', 'Segoe UI', sans-serif !important;
+                font-weight: 500 !important;
+                font-size: 0.85rem !important;
+                padding: 0.5rem 1rem !important;
                 
-                padding: 0.4rem 0.8rem !important; /* Menos relleno (más delgado) */
-                box-shadow: none !important; /* Sin sombra pesada */
-                transition: all 0.2s ease !important;
-                
-                display: flex !important;
-                justify-content: center !important;
-                align-items: center !important;
-                gap: 5px !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+                text-transform: none !important; /* Más elegante sin uppercase forzado */
+                letter-spacing: 0.3px !important;
             }
             
             section[data-testid="stSidebar"] .stButton button:hover {
-                background-color: rgba(0, 212, 255, 0.1) !important; /* Luz sutil al hover */
+                background: rgba(255, 255, 255, 0.08) !important;
                 border-color: #00d4ff !important;
-                color: #ffffff !important;
-                box-shadow: 0 0 10px rgba(0, 212, 255, 0.3) !important;
-                transform: translateY(-1px) !important;
+                color: #00d4ff !important;
+                box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2) !important;
+                transform: translateY(-2px) !important;
+            }
+
+            /* Botón Especial (Forzar Web) */
+            section[data-testid="stSidebar"] .stButton button:active {
+                transform: translateY(0px) !important;
+            }
+            
+            /* Diferenciación sutil para el segundo botón si se desea */
+            [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] div:nth-child(2) button {
+                border-color: rgba(0, 212, 255, 0.4) !important;
+                color: #00d4ff !important;
             }
 
             /* --- HEADER "FILTRO DE TIEMPO" COMPACTO --- */
