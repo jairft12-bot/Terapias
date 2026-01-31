@@ -523,9 +523,9 @@ col_status_info, col_time_info = st.columns([3, 1])
 with col_status_info:
     if error:
         st.error(f"❌ Error de Carga: {error}")
-    else:
-        # Mostrar fuente de datos elegante
-        if "Web" in data_source:
+    elif IS_LOCAL:
+        # Mostrar fuente de datos elegante (Solo JAIR - Local)
+        if "web" in str(data_source).lower():
             st.success(f"✔️ Conectado a Excel Online ({data_source})")
         else:
             st.warning(f"⚠️ Usando copia local ({data_source})")
@@ -714,7 +714,7 @@ if df is not None:
                     break
             if not col_id_excel: col_id_excel = df_final.columns[0] # Fallback primera col
 
-            if 'count_negativos' in locals() and count_negativos > 0:
+            if IS_LOCAL and 'count_negativos' in locals() and count_negativos > 0:
                 st.error(f"⚠️ **Atención:** Se han detectado **{count_negativos} casos** de pacientes con sesiones en exceso (Saldo Negativo).")
                 with st.expander(f"Ver lista de {count_negativos} pacientes"):
                     if col_pend_final:
