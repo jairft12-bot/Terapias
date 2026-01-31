@@ -5,11 +5,16 @@ import time
 import datetime
 import os
 import altair as alt
-
 import requests
 import urllib3
 import ssl
+import re
+import getpass
 import mapas # Importamos modulo local
+
+# --- CONFIGURACIÓN DE ENTORNO ---
+# Detectamos si estamos en local (PC de Jair)
+IS_LOCAL = "jair" in os.getcwd() or getpass.getuser() == "jair"
 
 # Configuración de página
 st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sidebar_state="expanded")
@@ -270,106 +275,80 @@ def load_data(timestamp_trigger):
     data_source = "Desconocido"
     df = None
     error_msg = None
-    age_min = 0 # Default para evitar NameError
+    age_min = 0 
     
-    # 1. INTENTO WEB (Tu enlace)
-    try:
-        # Cache Busting "Nuclear Option" v2 (Solicitud JAIR para velocidad)
-        # 1. Headers to tell server/CDN "I want extremely fresh data"
-        # 2. Dynamic dual-timestamp URL to bypass any regional caching
-        t_ms = int(time.time() * 1000)
-        t_sec = int(time.time())
-        dynamic_url = f"{DATA_URL}&t_ms={t_ms}&t_sec={t_sec}"
+    # --- ORDEN DE PRIORIDAD ---
+    # Si estamos en la PC de Jair (Local), intentamos LOCAL primero para velocidad instantánea.
+    # En la Nube, intentamos WEB primero.
+    
+    intentos = []
+    if IS_LOCAL:
+        intentos = ["local", "web"]
+    else:
+        intentos = ["web", "local"]
         
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Cache-Control': 'no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0', 
-            'Pragma': 'no-cache', 
-            'Expires': '0',
-            'Surrogate-Control': 'no-store'
-        }
+    for metodo in intentos:
+        if df is not None: break
         
-        # Session requests para persistencia/eficiencia
-        sess = requests.Session()
-        response = sess.get(dynamic_url, headers=headers, verify=False, timeout=12)
-        
-        if response.status_code == 200:
-            df = pd.read_excel(io.BytesIO(response.content), sheet_name=SHEET_NAME, engine='openpyxl')
-            
-            # --- LIMPIEZA PROFUNDA ---
-            df.columns = df.columns.astype(str).str.upper().str.strip()
-            
-            def clean_cell(x):
-                if isinstance(x, str):
-                    return x.strip().upper()
-                return x
-                
-            df = df.map(clean_cell)
-            data_source = "🌐 Web (Nube Viva1A)"
-        else:
-             error_msg = f"Web falló con código: {response.status_code}"
-    except Exception as e:
-        error_msg = f"Web falló: {str(e)}"
-
-    # 2. INTENTO LOCAL (Si web falla o estamos en desarrollo offline)
-    if df is None:
-        try:
-            if os.path.exists(LOCAL_PATH):
-                mod_time = os.path.getmtime(LOCAL_PATH)
-                age_min = (time.time() - mod_time) / 60
-                
-                cols_str = {
-                    'DNI': str, 'dn': str, 'DNI ': str, 
-                    'ID': str, 'id': str, 
-                    'CODIGO': str, 
-                    'DOCUMENTO': str, 'DOC': str,
-                    'TLF': str, 'TELEFONO': str
+        if metodo == "web":
+            try:
+                t_ms = int(time.time() * 1000)
+                dynamic_url = f"{DATA_URL}&t_ms={t_ms}"
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0', 
+                    'Pragma': 'no-cache', 
+                    'Expires': '0'
                 }
-                df = pd.read_excel(LOCAL_PATH, sheet_name=SHEET_NAME, engine='openpyxl', converters=cols_str)
-                if df is not None:
-                     df.columns = df.columns.astype(str).str.upper().str.strip()
-                     
-                     import re
-                     def clean_id_value(val):
-                         if pd.isna(val): return ""
-                         s = str(val).strip()
-                         if re.match(r'^\d+\.0+$', s):
-                             return s.split('.')[0]
-                         return s
+                response = requests.get(dynamic_url, headers=headers, verify=False, timeout=10)
+                if response.status_code == 200:
+                    df = pd.read_excel(io.BytesIO(response.content), sheet_name=SHEET_NAME, engine='openpyxl')
+                    df.columns = df.columns.astype(str).str.upper().str.strip()
+                    df = df.map(lambda x: x.strip().upper() if isinstance(x, str) else x)
+                    data_source = "🌐 Web (SharePoint)"
+            except Exception as e:
+                error_msg = f"Web falló: {str(e)}"
+                
+        elif metodo == "local":
+            try:
+                if os.path.exists(LOCAL_PATH):
+                    mod_time = os.path.getmtime(LOCAL_PATH)
+                    age_min = (time.time() - mod_time) / 60
+                    cols_str = {'DNI': str, 'ID': str, 'CODIGO': str, 'DOCUMENTO': str, 'TLF': str}
+                    df = pd.read_excel(LOCAL_PATH, sheet_name=SHEET_NAME, engine='openpyxl', converters=cols_str)
+                    if df is not None:
+                        df.columns = df.columns.astype(str).str.upper().str.strip()
+                        def clean_id(val):
+                            if pd.isna(val): return ""
+                            s = str(val).strip()
+                            return s.split('.')[0] if re.match(r'^\d+\.0+$', s) else s
+                        for col in ['DNI', 'ID', 'DOCUMENTO', 'TLF', 'TELEFONO', 'CODIGO']:
+                            if col in df.columns: df[col] = df[col].map(clean_id)
+                        df = df.map(lambda x: x.strip().upper() if isinstance(x, str) else x)
+                        data_source = f"💻 Local (Hace {int(age_min)} min)"
+            except Exception as e:
+                error_msg = f"{error_msg} | Local falló: {str(e)}"
 
-                     target_cols = ['DNI', 'ID', 'DOCUMENTO', 'TLF', 'TELEFONO', 'CODIGO']
-                     for col in target_cols:
-                         if col in df.columns:
-                             df[col] = df[col].map(clean_id_value)
-
-                     def clean_cell(x):
-                         if isinstance(x, str):
-                             return x.strip().upper()
-                         return x
-                     df = df.map(clean_cell)
-                     
-                data_source = f"💻 Disco Local (Antigüedad: {int(age_min)} min)"
-            else:
-                error_msg = f"{error_msg} | Local no encontrado: {LOCAL_PATH}"
-        except Exception as e:
-            error_msg = f"{error_msg} | Local falló: {str(e)}"
-            
-    # Ajuste de Zona Horaria (UTC-5 para Lima/Bogotá)
     now_local = datetime.datetime.now() - datetime.timedelta(hours=5)
     timestamp = now_local.strftime('%H:%M:%S')
     return df, error_msg, timestamp, data_source
 
+# --- HELPER PARA ACTUALIZAR TODO EL ESTADO ---
+def refresh_all_data():
+    df, err, ts, src = load_data(time.time())
+    st.session_state.df_cache = df
+    st.session_state.error = err
+    st.session_state.hora_lectura = ts
+    st.session_state.data_source = src
+    st.session_state.last_refresh = time.time()
+    st.session_state.last_auto_refresh = time.time()
+
 # --- CONFIGURACIÓN DE ENTORNO ---
-# Detectamos si estamos en local chequeando el path específico del usuario
-# Esto permite ver controles avanzados en tu PC, pero ocultarlos en la nube
-import getpass
-IS_LOCAL = "jair" in os.getcwd() or getpass.getuser() == "jair"
+# (Movido al inicio)
 
 # --- LÓGICA DE ESTADO DE SESIÓN ---
-if 'last_refresh' not in st.session_state:
-    st.session_state.last_refresh = time.time()
 if 'df_cache' not in st.session_state:
-    st.session_state.df_cache, st.session_state.error, st.session_state.hora_lectura, st.session_state.data_source = load_data(st.session_state.last_refresh)
+    refresh_all_data()
 
    
 
@@ -414,8 +393,6 @@ if df is not None:
             # CASO 2: Texto tipo "31-oct" (Regex estricto para evitar 'ene' en 'pendiente')
             target_month = None
             target_year = datetime.datetime.now().year # Default curr year
-            
-            import re
             
             # Buscar texto de mes con límites de palabra o separadores
             for mes_txt, mes_num in meses.items():
@@ -478,8 +455,7 @@ if df is not None:
         # El usuario pidió "mas chico" y "sin titulo"
         col_reload, col_blank = st.columns([1, 0.01]) # Truco para ajustar ancho si fuera necesario, o simple button
         if st.button("↻ Recargar", help="Forzar actualización de datos"):
-            st.session_state.df_cache, error, ts, source = load_data(time.time())
-            st.session_state.last_refresh = time.time()
+            refresh_all_data()
             st.rerun()
             
         st.divider()
@@ -521,13 +497,8 @@ if df is not None:
                 options=[60, 90, 120, 180, 240, 300, 600],
                 value=120
             )
-            # Solo ejecutamos el fragmento de refresh si está activado
-            if 'last_auto_refresh' not in st.session_state:
-                st.session_state.last_auto_refresh = time.time()
-            
-            if (time.time() - st.session_state.last_auto_refresh) > refresh_interval:
-                st.session_state.last_auto_refresh = time.time()
-                st.session_state.df_cache, error, ts, source = load_data(time.time())
+            if (time.time() - st.session_state.get('last_auto_refresh', 0)) > refresh_interval:
+                refresh_all_data()
                 st.rerun()
 
 
