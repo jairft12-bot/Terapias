@@ -723,9 +723,14 @@ if df is not None:
                         
                         # Columnas a mostrar
                         col_paciente = 'PACIENTES' if 'PACIENTES' in df_neg.columns else df_neg.columns[0]
+                        
+                        # Buscar columna de Terapia
+                        col_terapia = 'ESPECIALIDAD' if 'ESPECIALIDAD' in df_neg.columns else ('PROGRAMAS' if 'PROGRAMAS' in df_neg.columns else None)
+                        
                         cols_show_neg = []
                         if col_id_excel and col_id_excel != col_paciente: cols_show_neg.append(col_id_excel)
                         cols_show_neg.append(col_paciente)
+                        if col_terapia: cols_show_neg.append(col_terapia) # Agregado por solicitud
                         if col_pend_final: cols_show_neg.append(col_pend_final)
                         
                         # Formatear ID
