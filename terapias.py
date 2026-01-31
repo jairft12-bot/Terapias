@@ -9,6 +9,7 @@ import altair as alt
 import requests
 import urllib3
 import ssl
+import mapas # Importamos modulo local
 
 # Configuración de página
 st.set_page_config(page_title="Visor de Terapias", layout="wide", initial_sidebar_state="expanded")
@@ -566,11 +567,12 @@ if df is not None:
         return False
 
     # Definir 4 pestañas explícitamente para evitar errores
-    tab_dashboard, tab_search, tab_main, tab_downloads = st.tabs([
+    tab_dashboard, tab_search, tab_main, tab_downloads, tab_map = st.tabs([
         "📊 Panel Principal", 
         "🔍 Buscador de Pacientes", 
         "📋 Tabla Principal", 
-        "📥 Descargas"
+        "📥 Descargas",
+        "🔥 Mapa de Calor"
     ])
     
     # Check si hay algun filtro activo
@@ -1462,6 +1464,10 @@ if df is not None:
                         )
                     else:
                         st.warning("No se encontraron datos para exportar.")
+    with tab_map:
+         # Pasamos df_final que ya tiene los filtros aplicados (Fechas/Pacientes)
+         mapas.render_heatmap(df_final)
+
 else:
     st.error(f"⚠️ No se pudieron cargar datos.")
     if error:

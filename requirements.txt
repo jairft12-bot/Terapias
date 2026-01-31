@@ -4,3 +4,9 @@ openpyxl
 xlsxwriter
 requests
 st-gsheets-connection
+
+geopy
+folium
+streamlit-folium
+unidecode
+certifi
