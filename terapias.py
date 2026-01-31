@@ -1012,8 +1012,8 @@ if df is not None:
                 if 'Sesiones_Programadas' in sp_stats.columns:
                     tooltip_list.append(alt.Tooltip('Sesiones_Programadas', title='Sesiones Programadas'))
                 
-                if 'Sesiones_Ejecutadas' in sp_stats.columns:
-                    tooltip_list.append(alt.Tooltip('Sesiones_Ejecutadas', title='Sesiones Ejecutadas'))
+                if 'Sesiones_Realizadas' in sp_stats.columns:
+                    tooltip_list.append(alt.Tooltip('Sesiones_Realizadas', title='Sesiones Realizadas'))
                 
                 if 'Pacientes_Unicos' in sp_stats.columns:
                     tooltip_list.append(alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos'))
