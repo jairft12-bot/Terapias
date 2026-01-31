@@ -509,19 +509,20 @@ if df is not None:
         opciones_pacientes = ["Todos"] + sorted_patients
         filt_patient = st.selectbox("Seleccionar Paciente:", opciones_pacientes, index=0)
 
-        # 4. CONTROLES DE ACTUALIZACIÓN
-        st.divider()
-        st.caption("⚙️ Configuración de Datos")
-        enable_autorefresh = st.checkbox("✅ Auto-Recarga Automática", value=True, help="La app se refrescará sola cada cierto tiempo.")
-        if enable_autorefresh:
-            refresh_interval = st.select_slider(
-                "Frecuencia (Segundos):",
-                options=[60, 90, 120, 180, 240, 300, 600],
-                value=120
-            )
-            if (time.time() - st.session_state.get('last_auto_refresh', 0)) > refresh_interval:
-                refresh_all_data()
-                st.rerun()
+        # 4. CONTROLES DE ACTUALIZACIÓN (Solo JAIR - Local)
+        if IS_LOCAL:
+            st.divider()
+            st.caption("⚙️ Configuración de Datos")
+            enable_autorefresh = st.checkbox("✅ Auto-Recarga Automática", value=True, help="La app se refrescará sola cada cierto tiempo.")
+            if enable_autorefresh:
+                refresh_interval = st.select_slider(
+                    "Frecuencia (Segundos):",
+                    options=[60, 90, 120, 180, 240, 300, 600],
+                    value=120
+                )
+                if (time.time() - st.session_state.get('last_auto_refresh', 0)) > refresh_interval:
+                    refresh_all_data()
+                    st.rerun()
 
 
 # Área Principal - Indicadores de Estado
