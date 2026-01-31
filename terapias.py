@@ -1099,11 +1099,8 @@ if df is not None:
                 unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
                 unique_counts.columns = ['Estado', 'Pacientes']
                 
-                # --- AGREGAR SESIONES PROGRAMADAS Y REALIZADAS (Solicitud JAIR) ---
+                # --- AGREGAR SESIONES REALIZADAS (Solicitud JAIR) ---
                 df_st_viz = df_st_valid.copy()
-                
-                # Conversión segura a numérico para evitar TypeError: 'int' and 'str'
-                df_st_viz['CANT.'] = pd.to_numeric(df_st_viz['CANT.'], errors='coerce').fillna(0)
                 
                 col_real_viz = None
                 for c in df_st_viz.columns:
@@ -1112,9 +1109,6 @@ if df is not None:
                         df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
                         break
                 
-                prog_counts = df_st_viz.groupby('ESTADO')['CANT.'].sum().reset_index()
-                prog_counts.columns = ['Estado', 'Sesiones Programadas']
-                
                 real_counts = pd.DataFrame()
                 if col_real_viz:
                     real_counts = df_st_viz.groupby('ESTADO')[col_real_viz].sum().reset_index()
@@ -1122,11 +1116,10 @@ if df is not None:
                 
                 # Merge de todas las métricas
                 final_stats = pd.merge(total_counts, unique_counts, on='Estado')
-                final_stats = pd.merge(final_stats, prog_counts, on='Estado')
                 if not real_counts.empty:
                     final_stats = pd.merge(final_stats, real_counts, on='Estado')
                 
-                tooltip_list = ['Estado', 'Total Terapias', 'Pacientes', 'Sesiones Programadas']
+                tooltip_list = ['Estado', 'Total Terapias', 'Pacientes']
                 if not real_counts.empty:
                     tooltip_list.append('Sesiones Realizadas')
 
