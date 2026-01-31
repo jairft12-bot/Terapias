@@ -1098,12 +1098,19 @@ if df is not None:
                 col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
                 unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
                 unique_counts.columns = ['Estado', 'Pacientes']
+                
+                # --- AGREGAR SESIONES PROGRAMADAS (Solicitud JAIR) ---
+                prog_counts = df_st_valid.groupby('ESTADO')['CANT.'].sum().reset_index()
+                prog_counts.columns = ['Estado', 'Sesiones Programadas']
+                
+                # Merge de todas las métricas
                 final_stats = pd.merge(total_counts, unique_counts, on='Estado')
+                final_stats = pd.merge(final_stats, prog_counts, on='Estado')
                 
                 base_st = alt.Chart(final_stats).encode(
                     x=alt.X('Total Terapias', title='Total'),
                     y=alt.Y('Estado', sort='-x', title=''),
-                    tooltip=['Estado', 'Total Terapias', 'Pacientes']
+                    tooltip=['Estado', 'Total Terapias', 'Pacientes', 'Sesiones Programadas']
                 )
                 bars_st = base_st.mark_bar(color="#FF4B4B")
                 text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text='Total Terapias')
