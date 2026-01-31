@@ -988,12 +988,17 @@ if df is not None:
                     'Total_Terapias': ('ESPECIALIDAD', 'count')
                 }
                 
-                # Siempre sumamos CANT. si la columna existe (Sesiones Programadas)
+                # JAIR: Sumamos Sesiones Programadas (CANT) y Ejecutadas (REALIZADAS)
                 if 'col_cant_final' in locals() and col_cant_final:
                     df_sp[col_cant_final] = pd.to_numeric(df_sp[col_cant_final], errors='coerce').fillna(0)
                     agg_dict['Sesiones_Programadas'] = (col_cant_final, 'sum')
-                else:
-                    # Fallback por seguridad si no se encuentra la columna de cantidad
+                
+                if 'col_real_final' in locals() and col_real_final:
+                    df_sp[col_real_final] = pd.to_numeric(df_sp[col_real_final], errors='coerce').fillna(0)
+                    agg_dict['Sesiones_Ejecutadas'] = (col_real_final, 'sum')
+
+                if 'Sesiones_Programadas' not in agg_dict and 'Sesiones_Ejecutadas' not in agg_dict:
+                    # Fallback si no hay columnas de sesiones
                     agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
                 
                 sp_stats = df_sp.groupby('ESPECIALIDAD').agg(**agg_dict).reset_index().sort_values(by="Total_Terapias", ascending=False)
@@ -1006,7 +1011,11 @@ if df is not None:
                 
                 if 'Sesiones_Programadas' in sp_stats.columns:
                     tooltip_list.append(alt.Tooltip('Sesiones_Programadas', title='Sesiones Programadas'))
-                else:
+                
+                if 'Sesiones_Ejecutadas' in sp_stats.columns:
+                    tooltip_list.append(alt.Tooltip('Sesiones_Ejecutadas', title='Sesiones Ejecutadas'))
+                
+                if 'Pacientes_Unicos' in sp_stats.columns:
                     tooltip_list.append(alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos'))
 
                 base = alt.Chart(sp_stats).encode(
