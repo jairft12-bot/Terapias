@@ -470,9 +470,21 @@ if df is not None:
 
     def get_target_date(row):
         try:
-            # USAR COLUMNA I (Index 8)
-            val = row.iloc[8]
+            # USAR COLUMNA EXPLICITA 'FECHA OM'
+            # Buscamos la columna, asumiendo que ya fue normalizada a mayúsculas
+            # o buscamos una que contenga "FECHA" y "OM"
             
+            val = None
+            if 'FECHA OM' in row.index:
+                val = row['FECHA OM']
+            elif 'FECHA_OM' in row.index:
+                val = row['FECHA_OM']
+            else:
+                 # Fallback: Buscar index 9 (donde suele estar) si no lo encuentra por nombre
+                 if len(row) > 9: val = row.iloc[9]
+            
+            if pd.isna(val): return None
+
             if isinstance(val, (datetime.datetime, pd.Timestamp)):
                 return val
             elif isinstance(val, str):
