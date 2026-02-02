@@ -550,33 +550,35 @@ if df is not None:
         # 4. CONTROLES DE ACTUALIZACIÓN (Solo JAIR - Local)
         if IS_LOCAL:
             st.divider()
-            with st.expander("🔍 Diagnóstico de Datos"):
-                st.caption(f"Fuente: {data_source}")
-                if df is not None:
-                     total_raw = len(df)
-                     
-                     if 'PACIENTES' in df.columns:
-                         n_empty = df['PACIENTES'].isna().sum() + (df['PACIENTES'].astype(str).str.strip() == '').sum()
-                         n_valid = total_raw - n_empty
+            
+            # DIAGNOSTICO OCULTO POR SOLICITUD USER (Pero logica preservada si se necesita reactivar)
+            view_diagnosis = False 
+            if view_diagnosis:
+                with st.expander("🔍 Diagnóstico de Datos"):
+                    st.caption(f"Fuente: {data_source}")
+                    if df is not None:
+                         total_raw = len(df)
                          
-                         st.markdown(f"""
-                         | Métrica | Valor |
-                         | :--- | :--- |
-                         | **Total Filas Excel** | `{total_raw}` |
-                         | **Filas con Paciente** | `{n_valid}` (Gráficos) |
-                         | **Filas Huérfanas** | `{n_empty}` (Solo suman KPI) |
-                         """)
-                         
-                         # Mostrar huérfanas con data
-                         orphans = df[(df['PACIENTES'].isna()) | (df['PACIENTES'].astype(str).str.strip() == '')]
-                         if not orphans.empty:
-                             orphans_with_cant = orphans[orphans['CANT.'].notna()]
-                             if not orphans_with_cant.empty:
-                                 st.caption(f"⚠️ Hay {len(orphans_with_cant)} filas sin nombre pero con CANTIDAD (Suman {orphans_with_cant['CANT.'].sum()} al Total Programado).")
-                     else:
-                         st.error("Columna PACIENTES no encontrada")
-                         
-                     # st.write(f"**Filas Visualizadas:** {len(df_final)}") # df_final no existe aquí aun
+                         if 'PACIENTES' in df.columns:
+                             n_empty = df['PACIENTES'].isna().sum() + (df['PACIENTES'].astype(str).str.strip() == '').sum()
+                             n_valid = total_raw - n_empty
+                             
+                             st.markdown(f"""
+                             | Métrica | Valor |
+                             | :--- | :--- |
+                             | **Total Filas Excel** | `{total_raw}` |
+                             | **Filas con Paciente** | `{n_valid}` (Gráficos) |
+                             | **Filas Huérfanas** | `{n_empty}` (Solo suman KPI) |
+                             """)
+                             
+                             # Mostrar huérfanas con data
+                             orphans = df[(df['PACIENTES'].isna()) | (df['PACIENTES'].astype(str).str.strip() == '')]
+                             if not orphans.empty:
+                                 orphans_with_cant = orphans[orphans['CANT.'].notna()]
+                                 if not orphans_with_cant.empty:
+                                     st.caption(f"⚠️ Hay {len(orphans_with_cant)} filas sin nombre pero con CANTIDAD (Suman {orphans_with_cant['CANT.'].sum()} al Total Programado).")
+                         else:
+                             st.error("Columna PACIENTES no encontrada")
             
             st.caption("⚙️ Configuración")
             enable_autorefresh = st.checkbox("✅ Auto-Recarga", value=True)
@@ -1669,5 +1671,5 @@ else:
     
 # Lógica de Auto-refresco (al final)
 if 'enable_autorefresh' in locals() and enable_autorefresh:
-    time.sleep(refresh_interval)
+    time.sleep(locals().get('refresh_interval', 300))
     st.rerun()
