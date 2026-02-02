@@ -265,7 +265,8 @@ st.title("📊 Visor de Terapias")
 
 # URL PROPORCIONADA POR EL USUARIO (Nueva Versión)
 # Appending &download=1 to force binary download from the sharing link
-DATA_URL ="https://viva1aips-my.sharepoint.com/:x:/g/personal/gsiguenas_viva1a_com_pe/IQDGPInn2jcyT6oJdUfzmJE8AdUWEyt9EHy9QBN2KqK8jYg?e=MyYJSv&download=1"
+# URL VERIFICADA (gsiguenas) - 200 OK
+DATA_URL ="https://viva1aips-my.sharepoint.com/:x:/g/personal/gsiguenas_viva1a_com_pe/IQDGPInn2jcyT6oJdUfzmJE8AdUWEyt9EHy9QBN2KqK8jYg?e=YsMUjL&download=1"
 SHEET_NAME = "Seguimiento de terapias "
 
 
@@ -353,19 +354,53 @@ def load_data(force_web=False):
 
 # --- HELPER PARA ACTUALIZAR TODO EL ESTADO ---
 def refresh_all_data(force_web=False):
+    # Si forzamos web, limpiamos rastro de local para evitar confusiones
+    if force_web:
+        st.session_state.data_source = "Cargando desde Web..."
+    
     df, err, ts, src = load_data(force_web=force_web)
+    
+    # Actualizar estado global
     st.session_state.df_cache = df
     st.session_state.error = err
     st.session_state.hora_lectura = ts
     st.session_state.data_source = src
     st.session_state.last_refresh = time.time()
+    st.session_state.last_refresh_date = datetime.date.today()
     st.session_state.last_auto_refresh = time.time()
+    
+    # Si hubo error en web y no estamos forzando, intentar local? 
+    # No, load_data ya maneja la jerarquía.
 
 # --- CONFIGURACIÓN DE ENTORNO ---
 # (Movido al inicio)
 
 # --- LÓGICA DE ESTADO DE SESIÓN ---
-if 'df_cache' not in st.session_state:
+# Forzar recarga si:
+# 1. No hay caché
+# 2. Ha pasado más de 1 hora (TTL para frescura)
+# 3. Ha cambiado el día (Fix: No actualiza cuando pasa un día)
+TTL_CACHE_SECONDS = 3600
+current_time = time.time()
+current_date = datetime.date.today()
+
+cache_exists = 'df_cache' in st.session_state
+needs_refresh = False
+
+if not cache_exists:
+    needs_refresh = True
+else:
+    last_refresh = st.session_state.get('last_refresh', 0)
+    last_date = st.session_state.get('last_refresh_date')
+    
+    # Validar tiempo
+    if (current_time - last_refresh) > TTL_CACHE_SECONDS:
+        needs_refresh = True
+    # Validar cambio de día
+    if last_date != current_date:
+        needs_refresh = True
+
+if needs_refresh:
     refresh_all_data()
 
    
@@ -478,6 +513,8 @@ if df is not None:
                 st.rerun()
         with col_rel2:
             if st.button("⚡ Forzar Web", help="Ignora el archivo local y baja de SharePoint"):
+                # Limpieza profunda para forzar descarga
+                if 'df_cache' in st.session_state: del st.session_state.df_cache
                 refresh_all_data(force_web=True)
                 st.rerun()
             
@@ -585,9 +622,14 @@ if df is not None:
     filter_active = not (filt_year == "Todos" and filt_month_name == "Todos" and filt_patient == "Todos")
 
     # --- FILTRADO STRICTO (GLOBAL) ---
-    # Volvemos al filtrado estricto.
+    # MODIFICACION JAIR: No eliminar filas vacias, rellenarlas con "SIN NOMBRE"
+    # para que cuadren los KPIs totales.
     if 'PACIENTES' in df.columns:
-        df_base = df[df['PACIENTES'].notna() & (df['PACIENTES'].astype(str).str.strip() != '')].copy()
+        # Rellenar vacíos antes de filtrar
+        df['PACIENTES'] = df['PACIENTES'].fillna("SIN NOMBRE")
+        df.loc[df['PACIENTES'].astype(str).str.strip() == "", 'PACIENTES'] = "SIN NOMBRE"
+        
+        df_base = df.copy() # Ya no eliminamos nada
     else:
         df_base = df.copy()
 
