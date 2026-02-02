@@ -486,7 +486,9 @@ if df is not None:
     df['FECHA_CLAVE'] = df.apply(get_target_date, axis=1)
     
     # 2. Construir lista de Años/Meses DISPONIBLES en 'FECHA_CLAVE'
-    fechas_disponibles = df['FECHA_CLAVE'].dropna().unique()
+    # Filtramos NaT explícitamente y aseguramos que sean datetimes válidos
+    fechas_disponibles = df['FECHA_CLAVE'].dropna()
+    fechas_disponibles = fechas_disponibles[pd.to_datetime(fechas_disponibles, errors='coerce').notna()]
     
     if len(fechas_disponibles) > 0:
         years = sorted(list(set([d.year for d in fechas_disponibles])))
