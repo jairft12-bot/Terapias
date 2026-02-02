@@ -550,17 +550,40 @@ if df is not None:
         # 4. CONTROLES DE ACTUALIZACIÓN (Solo JAIR - Local)
         if IS_LOCAL:
             st.divider()
-            st.caption("⚙️ Configuración de Datos")
-            enable_autorefresh = st.checkbox("✅ Auto-Recarga Automática", value=True, help="La app se refrescará sola cada cierto tiempo.")
+            with st.expander("🔍 Diagnóstico de Datos"):
+                st.caption(f"Fuente: {data_source}")
+                if df is not None:
+                     total_raw = len(df)
+                     
+                     if 'PACIENTES' in df.columns:
+                         n_empty = df['PACIENTES'].isna().sum() + (df['PACIENTES'].astype(str).str.strip() == '').sum()
+                         n_valid = total_raw - n_empty
+                         
+                         st.markdown(f"""
+                         | Métrica | Valor |
+                         | :--- | :--- |
+                         | **Total Filas Excel** | `{total_raw}` |
+                         | **Filas con Paciente** | `{n_valid}` (Gráficos) |
+                         | **Filas Huérfanas** | `{n_empty}` (Solo suman KPI) |
+                         """)
+                         
+                         # Mostrar huérfanas con data
+                         orphans = df[(df['PACIENTES'].isna()) | (df['PACIENTES'].astype(str).str.strip() == '')]
+                         if not orphans.empty:
+                             orphans_with_cant = orphans[orphans['CANT.'].notna()]
+                             if not orphans_with_cant.empty:
+                                 st.caption(f"⚠️ Hay {len(orphans_with_cant)} filas sin nombre pero con CANTIDAD (Suman {orphans_with_cant['CANT.'].sum()} al Total Programado).")
+                     else:
+                         st.error("Columna PACIENTES no encontrada")
+                         
+                     # st.write(f"**Filas Visualizadas:** {len(df_final)}") # df_final no existe aquí aun
+            
+            st.caption("⚙️ Configuración")
+            enable_autorefresh = st.checkbox("✅ Auto-Recarga", value=True)
             if enable_autorefresh:
-                refresh_interval = st.select_slider(
-                    "Frecuencia (Segundos):",
-                    options=[60, 90, 120, 180, 240, 300, 600],
-                    value=120
-                )
-                if (time.time() - st.session_state.get('last_auto_refresh', 0)) > refresh_interval:
-                    refresh_all_data()
-                    st.rerun()
+                if (time.time() - st.session_state.get('last_auto_refresh', 0)) > 300: # 5 min default
+                     refresh_all_data()
+                     st.rerun()
 
 
 # Área Principal - Indicadores de Estado
@@ -622,16 +645,10 @@ if df is not None:
     filter_active = not (filt_year == "Todos" and filt_month_name == "Todos" and filt_patient == "Todos")
 
     # --- FILTRADO STRICTO (GLOBAL) ---
-    # MODIFICACION JAIR: No eliminar filas vacias, rellenarlas con "SIN NOMBRE"
-    # para que cuadren los KPIs totales.
-    if 'PACIENTES' in df.columns:
-        # Rellenar vacíos antes de filtrar
-        df['PACIENTES'] = df['PACIENTES'].fillna("SIN NOMBRE")
-        df.loc[df['PACIENTES'].astype(str).str.strip() == "", 'PACIENTES'] = "SIN NOMBRE"
-        
-        df_base = df.copy() # Ya no eliminamos nada
-    else:
-        df_base = df.copy()
+    # MODIFICADO JAIR: Mantenemos df_base intacto (con filas vacías y todo)
+    # para que los KPIs globales (Total Programado: 1174) cuadren.
+    # El filtrado visual se hará en df_final.
+    df_base = df.copy()
 
     # --- APLICAR FILTROS (FECHA + PACIENTE) ---
     if filter_active:
@@ -656,15 +673,25 @@ if df is not None:
         # df_dash SOLO tiene filtro de periodo
         df_dash = df_base[mask_period].copy()
 
-        # 2. Filtro de Paciente
+        # 2. Filtro de Paciente (Para Tablas y Gráficos)
+        # AQUÍ SÍ eliminamos filas sin paciente para que los conteos de ordenes sean ~153
         mask_final = mask_period.copy()
+        
+        # Filtro base: Paciente no vacío
+        if 'PACIENTES' in df_base.columns:
+             mask_final = mask_final & (df_base['PACIENTES'].notna()) & (df_base['PACIENTES'].astype(str).str.strip() != "")
+
         if filt_patient != "Todos":
             mask_final = mask_final & (df_base['PACIENTES'].astype(str).str.strip().str.upper() == filt_patient)
              
         df_final = df_base[mask_final].copy()
     else:
         df_dash = df_base.copy()
-        df_final = df_base.copy()
+        # En caso no haya filtro de fecha, igual limpiamos vacíos para df_final
+        if 'PACIENTES' in df_base.columns:
+             df_final = df_base[(df_base['PACIENTES'].notna()) & (df_base['PACIENTES'].astype(str).str.strip() != "")].copy()
+        else:
+             df_final = df_base.copy()
 
     with tab_dashboard:
         # --- CÁLCULO DE RANGO DE FECHAS VISIBLE ---
