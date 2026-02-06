@@ -755,7 +755,7 @@ if df is not None:
                 global_programado = pd.to_numeric(df_base[col_c_base], errors='coerce').fillna(0).sum()
             if col_p_base:
                 s_p_base = pd.to_numeric(df_base[col_p_base], errors='coerce').fillna(0)
-                global_sesiones_saldo = int(s_p_base[s_p_base > 0].sum())
+                global_sesiones_saldo = int(s_p_base.sum())
                 if col_r_base:
                     global_ejecutadas = pd.to_numeric(df_base[col_r_base], errors='coerce').fillna(0).sum()
                 else:
@@ -780,7 +780,7 @@ if df is not None:
                 total_programado_final = pd.to_numeric(df_final[col_cant_final], errors='coerce').fillna(0).sum()
             if col_pend_final:
                 s_pend_final = pd.to_numeric(df_final[col_pend_final], errors='coerce').fillna(0)
-                total_sesiones_saldo_final = int(s_pend_final[s_pend_final > 0].sum())
+                total_sesiones_saldo_final = int(s_pend_final.sum())
                 if col_real_final:
                     total_ejecutadas_final = pd.to_numeric(df_final[col_real_final], errors='coerce').fillna(0).sum()
                 else:
