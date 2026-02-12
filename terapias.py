@@ -912,13 +912,12 @@ if df is not None:
                     
                     mask_stagnant = (df_stagnant[col_realizadas] == 0) & (df_stagnant['dias_pasados'] >= 5)
                     
-                    # --- FILTRO POR ESTADO (Solicitud JAIR): PENDIENTE AGENDAMIENTO o EN PROCESO ---
+                    # --- FILTRO POR ESTADO (Solicitud JAIR): SOLO PENDIENTE AGENDAMIENTO ---
                     if col_estado:
-                         # Filtro flexible para capturar "PENDIENTE AGENDAMIENTO" o "EN PROCESO"
+                         # Filtro flexible para capturar "PENDIENTE AGENDAMIENTO" SOLAMENTE
                          mask_status = (
                              (df_stagnant[col_estado].astype(str).str.upper().str.contains("PENDIENTE", na=False) & 
-                              df_stagnant[col_estado].astype(str).str.upper().str.contains("AGENDAMIENTO", na=False)) |
-                             (df_stagnant[col_estado].astype(str).str.upper().str.contains("EN PROCESO", na=False))
+                              df_stagnant[col_estado].astype(str).str.upper().str.contains("AGENDAMIENTO", na=False))
                          )
                          mask_stagnant = mask_stagnant & mask_status
                     
@@ -926,17 +925,28 @@ if df is not None:
                     count_stag = len(df_stag_final)
                     
                     if count_stag > 0:
-                        st.warning(f"⏳ **Alerta:** {count_stag} pacientes sin iniciar (> 5 días esperando).")
-                        with st.expander(f"Ver lista de {count_stag} pacientes"):
-                            col_paciente = 'PACIENTES' if 'PACIENTES' in df_stag_final.columns else df_stag_final.columns[0]
+                        col_paciente = 'PACIENTES' if 'PACIENTES' in df_stag_final.columns else df_stag_final.columns[0]
+                        count_unique_patients = df_stag_final[col_paciente].nunique()
+                        
+                        st.warning(f"⏳ **Alerta:** {count_stag} ordenamientos pendientes por agendar que son de {count_unique_patients} pacientes (> 5 días esperando).")
+                        with st.expander(f"Ver lista de {count_stag} ordenamientos"):
                             
                             # --- FILTRO POR ESTADO (Request JAIR) ---
                             df_show_stag = df_stag_final.copy()
                             df_show_stag['Esperando'] = df_show_stag['dias_pasados'].astype(int).astype(str) + " días"
                             
+                            # Identificar columnas solicitadas (Especialidad y DNI)
+                            col_especialidad = next((c for c in df_stag_final.columns if "ESPECIALIDAD" in str(c).upper()), None)
+                            col_dni = next((c for c in df_stag_final.columns if "DNI" in str(c).upper()), None)
+
                             cols_stag = []
                             if col_id_excel != col_paciente: cols_stag.append(col_id_excel)
                             cols_stag.append(col_paciente)
+                            
+                            # Agregar columnas solicitadas
+                            if col_especialidad: cols_stag.append(col_especialidad)
+                            if col_dni: cols_stag.append(col_dni)
+                            
                             if col_estado: cols_stag.append(col_estado) 
                             cols_stag.append('Esperando')
                             
