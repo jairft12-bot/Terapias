@@ -968,6 +968,9 @@ if df is not None:
                                  st.caption(f"📊 Desglose: {summary_text}")
                             
                             # (Código eliminado que forzaba int y rompía leading zeros en el ID) 
+                            if col_dni and col_dni in df_show_stag.columns:
+                                df_show_stag[col_dni] = df_show_stag[col_dni].astype(str).str.replace(r'\.0+$', '', regex=True).str.strip()
+                                df_show_stag[col_dni] = df_show_stag[col_dni].apply(lambda x: x.zfill(8) if x.isdigit() and len(x) == 7 else x)
                             # if col_id_excel in df_show_stag.columns ...
                             
                             st.dataframe(df_show_stag[cols_stag], hide_index=True, use_container_width=True)
