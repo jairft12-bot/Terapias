@@ -865,9 +865,10 @@ if df is not None:
                     count_near = len(df_near)
                     
                     if count_near > 0:
-                        st.warning(f"🔔 **Alerta:** {count_near} pacientes por finalizar (≤ 2 sesiones).")
-                        with st.expander(f"Ver lista de {count_near} pacientes"):
-                            col_paciente = 'PACIENTES' if 'PACIENTES' in df_alert.columns else df_alert.columns[0]
+                        col_paciente = 'PACIENTES' if 'PACIENTES' in df_alert.columns else df_alert.columns[0]
+                        count_unique_patients = df_near[col_paciente].nunique()
+                        st.warning(f"🔔 **Alerta:** {count_near} Ordenes por finalizar que son de {count_unique_patients} pacientes (≤ 2 sesiones).")
+                        with st.expander(f"Ver lista de {count_near} ordenes"):
                             # Si col_id_excel es el mismo que paciente, no repetirlo
                             cols_show = []
                             if col_id_excel != col_paciente: cols_show.append(col_id_excel)
