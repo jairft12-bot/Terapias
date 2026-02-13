@@ -1071,226 +1071,458 @@ if df is not None:
 
         st.divider()
 
-        # --- 2. GRÁFICOS ESTRATÉGICOS (Layout Ajustado: 3 Columnas) ---
-        # Izquierda: Especialidad | Centro: Donut Balance | Derecha: Estado
-        c1, c2, c3 = st.columns([1.2, 0.8, 1.2])
+        # --- TOGGLE VISTA GENERAL vs MENSUAL ---
+        # "Solo trabajaremos en el local ojo" -> "Por Mes" vs "General"
+        # Usamos st.radio horizontal para simular segmented control
+        # CSS PERSONALIZADO PARA BOTONES CON SOMBRA (SIN BOLITA)
+        st.markdown("""
+        <style>
+            /* Ocultar la etiqueta del radio button "Modo de Visualización" si se muestra arriba */
+            div[class*="stRadio"] > label {
+                display: none;
+            }
+            
+            /* Contenedor del grupo de botones */
+            div[role="radiogroup"] {
+                display: flex;
+                flex-direction: row;
+                gap: 12px;
+            }
+
+            /* Estilo base del botón (Label del radio) */
+            div[role="radiogroup"] > label {
+                background-color: #ffffff;
+                padding: 10px 24px;
+                border-radius: 12px;
+                cursor: pointer;
+                border: 1px solid #e0e0e0;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Sombra suave */
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: auto;
+            }
+            
+            /* Ocultar la "bolita" (circle) del radio button por defecto */
+            div[role="radiogroup"] > label > div:first-child {
+                display: none !important;
+            }
+
+            /* Hover del botón */
+            div[role="radiogroup"] > label:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+                border-color: #bdbdbd;
+            }
+
+            /* Botón Seleccionado */
+            div[role="radiogroup"] > label[data-checked="true"] {
+                background-color: #262730; /* Color oscuro elegante */
+                color: white;
+                border: 1px solid #262730;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            }
+            
+            /* Texto del botón seleccionado */
+            div[role="radiogroup"] > label[data-checked="true"] div {
+                color: white !important;
+                font-weight: 600;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
+        view_mode = st.radio(
+            "Modo de Visualización:",
+            ["General", "Por Mes"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="view_mode_selector"
+        )
         
-        with c1:
-            st.subheader("📊 Terapias Solicitadas")
+        st.divider()
+
+        # --- 2. GRÁFICOS ESTRATÉGICOS ---
+        if view_mode == "General":
+            # Layout de 3 columnas: Terapias | Gestión (Donut) | Estados
+            c1, c2, c3 = st.columns([1.2, 0.8, 1.2])
+            container_terapias = c1
+            container_gestion = c2
+            container_pacientes = c3
+        else: # Por Mes
+            # Layout de 1 columna (Vertical) para MAXIMIZAR TAMAÑO
+            # Al usar st.container(), se apilan uno debajo del otro ocupando todo el ancho
+            c1 = st.container()
+            c2 = st.container()
+            
+            container_terapias = c1
+            container_gestion = None # Ocultar
+            container_pacientes = c2
+        
+        with container_terapias:
+            if view_mode == "General":
+                st.subheader("📊 Terapias Solicitadas")
             if 'ESPECIALIDAD' in df_final.columns:
-                # 1. Preparar datos limpios (sobre df_final)
-                df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')]
-                
-                # 2. Calcular estadisticas
-                col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
-                
-                agg_dict = {
-                    'Total_Terapias': ('ESPECIALIDAD', 'count')
-                }
-                
-                # JAIR: Sumamos Sesiones Programadas y Realizadas
-                # Buscamos columnas dinámicamente para mayor robustez
-                col_c = next((c for c in df_sp.columns if "CANT" in str(c).upper()), None)
-                col_r = next((c for c in df_sp.columns if "REALIZADAS" in str(c).upper() or "EJECUTADAS" in str(c).upper()), None)
 
-                if col_c:
-                    df_sp[col_c] = pd.to_numeric(df_sp[col_c], errors='coerce').fillna(0)
-                    agg_dict['Sesiones_Programadas'] = (col_c, 'sum')
                 
-                if col_r:
-                    df_sp[col_r] = pd.to_numeric(df_sp[col_r], errors='coerce').fillna(0)
-                    agg_dict['Sesiones_Realizadas'] = (col_r, 'sum')
+                # --- MODO GENERAL (Original) ---
+                if view_mode == "General":
+                    # 1. Preparar datos limpios (sobre df_final)
+                    df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')]
+                    
+                    # 2. Calcular estadisticas
+                    col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
+                    
+                    agg_dict = {
+                        'Total_Terapias': ('ESPECIALIDAD', 'count')
+                    }
+                    
+                    # JAIR: Sumamos Sesiones Programadas y Realizadas
+                    col_c = next((c for c in df_sp.columns if "CANT" in str(c).upper()), None)
+                    col_r = next((c for c in df_sp.columns if "REALIZADAS" in str(c).upper() or "EJECUTADAS" in str(c).upper()), None)
 
-                if 'Sesiones_Programadas' not in agg_dict and 'Sesiones_Realizadas' not in agg_dict:
-                    # Fallback si no hay columnas de sesiones
-                    agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
-                
-                sp_stats = df_sp.groupby('ESPECIALIDAD').agg(**agg_dict).reset_index().sort_values(by="Total_Terapias", ascending=False)
-                
-                # 3. Gráfico
-                tooltip_list = [
-                    alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
-                    alt.Tooltip('Total_Terapias', title='Terapias Ordenadas'),
-                ]
-                
-                if 'Sesiones_Programadas' in sp_stats.columns:
-                    tooltip_list.append(alt.Tooltip('Sesiones_Programadas', title='Sesiones Programadas'))
-                
-                if 'Sesiones_Realizadas' in sp_stats.columns:
-                    tooltip_list.append(alt.Tooltip('Sesiones_Realizadas', title='Sesiones Realizadas'))
-                
-                if 'Pacientes_Unicos' in sp_stats.columns:
-                    tooltip_list.append(alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos'))
+                    if col_c:
+                        df_sp[col_c] = pd.to_numeric(df_sp[col_c], errors='coerce').fillna(0)
+                        agg_dict['Sesiones_Programadas'] = (col_c, 'sum')
+                    
+                    if col_r:
+                        df_sp[col_r] = pd.to_numeric(df_sp[col_r], errors='coerce').fillna(0)
+                        agg_dict['Sesiones_Realizadas'] = (col_r, 'sum')
 
-                base = alt.Chart(sp_stats).encode(
-                    x=alt.X('Total_Terapias', title='Total Ordenadas'),
-                    y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
-                    tooltip=tooltip_list
-                )
-                bars = base.mark_bar(color="#FF4B4B")
-                text = base.mark_text(align='left', dx=3, color='black').encode(text='Total_Terapias')
+                    if 'Sesiones_Programadas' not in agg_dict and 'Sesiones_Realizadas' not in agg_dict:
+                        agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
+                    
+                    sp_stats = df_sp.groupby('ESPECIALIDAD').agg(**agg_dict).reset_index().sort_values(by="Total_Terapias", ascending=False)
+                    
+                    # 3. Gráfico
+                    tooltip_list = [
+                        alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
+                        alt.Tooltip('Total_Terapias', title='Terapias Ordenadas'),
+                    ]
+                    
+                    if 'Sesiones_Programadas' in sp_stats.columns:
+                        tooltip_list.append(alt.Tooltip('Sesiones_Programadas', title='Sesiones Programadas'))
+                    if 'Sesiones_Realizadas' in sp_stats.columns:
+                        tooltip_list.append(alt.Tooltip('Sesiones_Realizadas', title='Sesiones Realizadas'))
+                    if 'Pacientes_Unicos' in sp_stats.columns:
+                        tooltip_list.append(alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos'))
+
+                    base = alt.Chart(sp_stats).encode(
+                        x=alt.X('Total_Terapias', title='Total Ordenadas'),
+                        y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
+                        tooltip=tooltip_list
+                    )
+                    bars = base.mark_bar(color="#FF4B4B")
+                    text = base.mark_text(align='left', dx=3, color='black').encode(text='Total_Terapias')
+                    
+                    st.altair_chart((bars + text).properties(height=350), use_container_width=True)
+
+                    missing_sp = df_final[df_final['ESPECIALIDAD'].isna() | (df_final['ESPECIALIDAD'] == '')].shape[0]
+                    if missing_sp > 0:
+                        st.warning(f"⚠️ {missing_sp} filas sin Especialidad.")
                 
-                st.altair_chart((bars + text).properties(height=350), use_container_width=True)
-                
-                missing_sp = df_final[df_final['ESPECIALIDAD'].isna() | (df_final['ESPECIALIDAD'] == '')].shape[0]
-                if missing_sp > 0:
-                    st.warning(f"⚠️ Atención: Hay {missing_sp} filas con Especialidad vacía (No salen en la gráfica).")
-                else:
-                    st.success("✅ 0 filas con Especialidad vacía (Datos Limpios)")
+                # --- MODO POR MES (Gráfico Solicitado) ---
+                else: 
+                    # 1. Preparar datos (SIN FILTRO DE FECHA - "All History")
+                    # El usuario quiere ver la evolución completa (incluyendo futuros como Ene 2026),
+                    # independientemente del filtro de año seleccionado en el sidebar.
+                    
+                    df_history = df.copy()
+                    
+                    # Aplicar SOLO filtro de Paciente si está activo
+                    if filt_patient != "Todos":
+                         if 'PACIENTES' in df_history.columns:
+                             df_history = df_history[df_history['PACIENTES'].astype(str).str.strip().str.upper() == filt_patient]
+
+                    if 'FECHA_CLAVE' in df_history.columns and 'ESPECIALIDAD' in df_history.columns:
+                        df_m = df_history[df_history['ESPECIALIDAD'].notna() & (df_history['ESPECIALIDAD'] != '') & df_history['FECHA_CLAVE'].notna()].copy()
+                        df_m['FECHA_CLAVE'] = pd.to_datetime(df_m['FECHA_CLAVE'], errors='coerce')
+                        df_m = df_m.dropna(subset=['FECHA_CLAVE'])
+
+                        
+                        # Usamos el primer día del mes para ordenamiento correcto (Ene, Feb, Mar...)
+                        df_m['Mes_Orden'] = df_m['FECHA_CLAVE'].apply(lambda x: x.replace(day=1))
+                        
+                        # Mapeo de Meses a Español corto con Año (Ejes: Ene25, Feb25...)
+                        # Format similar to user request: "ener25" -> "Ene25"
+                        
+                        def format_mes_anio(d):
+                            meses_corto = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+                            m = meses_corto[d.month]
+                            y = str(d.year)[-2:] # Últimos 2 dígitos
+                            return f"{m}{y}"
+
+                        df_m['Mes_Nombre'] = df_m['Mes_Orden'].apply(format_mes_anio)
+
+                        # Agregamos conteo (Incluimos Mes_Orden y Mes_Nombre para poder ordenar)
+                        agg_m = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESPECIALIDAD']).size().reset_index(name='Cantidad')
+
+                        
+                        st.markdown(f"""
+
+                        <style>
+                        /* Estilo de sombra personalizado para el gráfico */
+                        .chart-container {{
+                            background-color: white;
+                            padding: 20px;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* Sombra suave */
+                            border: 1px solid #eee;
+                            margin-bottom: 20px;
+                        }}
+                        </style>
+                        """, unsafe_allow_html=True)
+
+                        # --- LAYOUT DE 2 COLUMNAS ---
+                        col_mes_1, col_mes_2 = st.columns(2)
+                        
+                        # --- COLUMNA 1: ESPECIALIDAD ---
+                        with col_mes_1:
+                            st.markdown("#### 📅 Por Especialidad")
+                            st.caption("Evolución mensual de terapias por tipo.")
+
+                            # Agregamos conteo existente
+                            # (agg_m ya creado arriba)
+                            
+                            base = alt.Chart(agg_m).encode(
+                                x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
+                                y=alt.Y('Cantidad', title='Cantidad'),
+                                color=alt.Color('ESPECIALIDAD', legend=None, scale=alt.Scale(scheme='tableau10')), 
+                                tooltip=[
+                                    alt.Tooltip('Mes_Nombre', title='Mes'),
+                                    alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
+                                    alt.Tooltip('Cantidad', title='Cantidad')
+                                ]
+                            )
+                            
+                            bars = base.mark_bar().encode(opacity=alt.value(0.9))
+                            text = base.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
+                                text=alt.Text('Cantidad')
+                            )
+                            
+                            final_chart = (bars + text).properties(
+                                width=55, 
+                                height=300
+                            ).facet(
+                                column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
+                                spacing=10 
+                            ).resolve_scale(y='shared') 
+                            
+                            with st.container(height=450, border=True):
+                                 st.altair_chart(final_chart, use_container_width=True)
+
+                        # --- COLUMNA 2: ESTADO (NUEVO) ---
+                        with col_mes_2:
+                            st.markdown("#### ⏳ Por Estado")
+                            st.caption("Evolución mensual del estado de las gestiones.")
+                            
+                            if 'ESTADO' in df_m.columns:
+                                # Agrupar por Mes y ESTADO
+                                agg_st = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESTADO']).size().reset_index(name='Cantidad')
+                                
+                                base_st = alt.Chart(agg_st).encode(
+
+                                    x=alt.X('ESTADO', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
+                                    y=alt.Y('Cantidad', title='Cantidad'),
+                                    color=alt.Color('ESTADO', legend=None, scale=alt.Scale(scheme='set2')), # Different color scheme
+                                    tooltip=[
+                                        alt.Tooltip('Mes_Nombre', title='Mes'),
+                                        alt.Tooltip('ESTADO', title='Estado'),
+                                        alt.Tooltip('Cantidad', title='Cantidad')
+                                    ]
+                                )
+                                
+                                bars_st = base_st.mark_bar().encode(opacity=alt.value(0.9))
+                                text_st = base_st.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
+                                    text=alt.Text('Cantidad')
+                                )
+                                
+                                final_chart_st = (bars_st + text_st).properties(
+                                    width=55, 
+                                    height=300
+                                ).facet(
+                                    column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
+                                    spacing=10 
+                                ).resolve_scale(y='shared') 
+                                
+                                with st.container(height=450, border=True):
+                                     st.altair_chart(final_chart_st, use_container_width=True)
+                            else:
+                                st.warning("Columna ESTADO no encontrada en los datos filtrados.")
+
+
+
+
+                        
+                    else:
+                        st.warning("Faltan columnas necesarias (FECHA o ESPECIALIDAD) para el gráfico mensual.")
+
+
             else:
                 st.warning("Columna ESPECIALIDAD no encontrada")
                 
-        with c2:
-            st.subheader("⏳ Estado de Gestión")
-            if col_estado_found:
-                # Normalizar serie para cálculos de la gráfica
-                s_est = df_final[col_estado_found].astype(str).str.upper().str.strip()
-                total_graf_final = len(df_final)
-                
-                # Definir grupos: FINALIZADO + EN PROCESO (Gestión Realizada) vs PENDIENTE AGENDAMIENTO
-                count_gestion_realizada = s_est[s_est.isin(['FINALIZADO', 'EN PROCESO'])].shape[0]
-                count_pend_agendamiento = s_est[s_est.str.contains("AGENDAMIENTO", case=False, na=False)].shape[0]
-                count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
-                
-                source_gest = pd.DataFrame({
-                    "Estado": ["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
-                    "Total": [count_gestion_realizada, count_pend_agendamiento, count_otros]
-                })
-                
-                # Calcular porcentajes para la gráfica
-                source_gest["Percentage"] = (source_gest["Total"] / total_graf_final * 100).fillna(0)
-                source_gest["PercentageLabel"] = source_gest["Percentage"].apply(lambda x: f"{x:.1f}%")
-                
-                # Gráfico Donut base
-                base = alt.Chart(source_gest).encode(
-                    theta=alt.Theta("Total", stack=True)
-                )
-                
-                pie = base.mark_arc(innerRadius=60, outerRadius=85).encode(
-                    color=alt.Color("Estado", scale=alt.Scale(domain=["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
-                                                             range=["#4CAF50", "#FFC107", "#9E9E9E"]),
-                                    legend=None),
-                    tooltip=["Estado", "Total", alt.Tooltip("Percentage", format=".1f")]
-                )
-                
-                # Texto central (Gestión Realizada %)
-                pct_gest_val = source_gest.loc[source_gest["Estado"]=="Gestión Realizada", "Percentage"].sum()
-                text_center = alt.Chart(pd.DataFrame({'text': [f"{pct_gest_val:.0f}%"]})).mark_text(
-                    radius=0, size=20, fontStyle="bold", color="#4CAF50"
-                ).encode(text='text:N')
+        if container_gestion:
+            # Solo mostrar en MODO GENERAL
+            if view_mode == "General":
+                with container_gestion:
+                    st.subheader("⏳ Estado de Gestión")
+                    if col_estado_found:
+                        # Normalizar serie para cálculos de la gráfica
+                        s_est = df_final[col_estado_found].astype(str).str.upper().str.strip()
+                        total_graf_final = len(df_final)
+                        
+                        # Definir grupos: FINALIZADO + EN PROCESO (Gestión Realizada) vs PENDIENTE AGENDAMIENTO
+                        count_gestion_realizada = s_est[s_est.isin(['FINALIZADO', 'EN PROCESO'])].shape[0]
+                        count_pend_agendamiento = s_est[s_est.str.contains("AGENDAMIENTO", case=False, na=False)].shape[0]
+                        count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
+                        
+                        source_gest = pd.DataFrame({
+                            "Estado": ["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
+                            "Total": [count_gestion_realizada, count_pend_agendamiento, count_otros]
+                        })
+                        
+                        source_gest["Percentage"] = (source_gest["Total"] / total_graf_final * 100).fillna(0)
+                        source_gest["PercentageLabel"] = source_gest["Percentage"].apply(lambda x: f"{x:.1f}%")
+                        
+                        # Gráfico Donut base
+                        base = alt.Chart(source_gest).encode(
+                            theta=alt.Theta("Total", stack=True)
+                        )
+                        
+                        pie = base.mark_arc(innerRadius=60, outerRadius=85).encode(
+                            color=alt.Color("Estado", scale=alt.Scale(domain=["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
+                                                                    range=["#4CAF50", "#FFC107", "#9E9E9E"]),
+                                            legend=None),
+                            tooltip=["Estado", "Total", alt.Tooltip("Percentage", format=".1f")]
+                        )
+                        
+                        # Texto central (Gestión Realizada %)
+                        pct_gest_val = source_gest.loc[source_gest["Estado"]=="Gestión Realizada", "Percentage"].sum()
+                        text_center = alt.Chart(pd.DataFrame({'text': [f"{pct_gest_val:.0f}%"]})).mark_text(
+                            radius=0, size=20, fontStyle="bold", color="#4CAF50"
+                        ).encode(text='text:N')
 
-                # Etiquetas laterales (Solo Pendientes y Otros)
-                # "el de pendiente ... vaya al costado de su color amarrilo"
-                # "el 86.1 que esta de negro quitalo" (Quitamos etiqueta de Gestión Realizada)
-                text_side = base.mark_text(radius=105, size=11).encode(
-                    text=alt.Text("PercentageLabel"),
-                    order=alt.Order("Estado"),
-                    color=alt.Color("Estado", scale=alt.Scale(domain=["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
-                                                             range=["#4CAF50", "#FF8F00", "#757575"]), legend=None)
-                ).transform_filter(
-                    alt.datum.Estado != 'Gestión Realizada'
-                )
-                
-                st.altair_chart((pie + text_center + text_side).properties(height=250), use_container_width=True)
-                
-                st.markdown(f"""
-                <div style="background-color: #f9f9f9; padding: 12px; border-radius: 10px; border: 1px solid #e0e0e0; margin-top: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border: none;">
-                        <tr style="border: none;">
-                            <td style="width: 33%; text-align: center; border-right: 1px solid #ddd; vertical-align: middle;">
-                                <div style="font-size: 11px; color: #4CAF50; font-weight: 600; text-transform: uppercase;">Realizadas</div>
-                                <div style="font-size: 18px; font-weight: 700; color: #2E7D32; margin-top: 2px;">{count_gestion_realizada}</div>
-                            </td>
-                            <td style="width: 33%; text-align: center; border-right: 1px solid #ddd; vertical-align: middle;">
-                                <div style="font-size: 11px; color: #FFC107; font-weight: 600; text-transform: uppercase;">Pendientes</div>
-                                <div style="font-size: 18px; font-weight: 700; color: #FF8F00; margin-top: 2px;">{count_pend_agendamiento}</div>
-                            </td>
-                            <td style="width: 33%; text-align: center; vertical-align: middle;">
-                                <div style="font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase;">Total</div>
-                                <div style="font-size: 18px; font-weight: 700; color: #000; margin-top: 2px;">{total_graf_final}</div>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.warning("Columna de Estado no disponible para gestión.")
+                        # Etiquetas laterales
+                        text_side = base.mark_text(radius=105, size=11).encode(
+                            text=alt.Text("PercentageLabel"),
+                            order=alt.Order("Estado"),
+                            color=alt.Color("Estado", scale=alt.Scale(domain=["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
+                                                                    range=["#4CAF50", "#FF8F00", "#757575"]), legend=None)
+                        ).transform_filter(
+                            alt.datum.Estado != 'Gestión Realizada'
+                        )
+                        
+                        st.altair_chart((pie + text_center + text_side).properties(height=250), use_container_width=True)
+                        
+                        st.markdown(f"""
+                        <div style="background-color: #f9f9f9; padding: 12px; border-radius: 10px; border: 1px solid #e0e0e0; margin-top: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border: none;">
+                                <tr style="border: none;">
+                                    <td style="width: 33%; text-align: center; border-right: 1px solid #ddd; vertical-align: middle;">
+                                        <div style="font-size: 11px; color: #4CAF50; font-weight: 600; text-transform: uppercase;">Realizadas</div>
+                                        <div style="font-size: 18px; font-weight: 700; color: #2E7D32; margin-top: 2px;">{count_gestion_realizada}</div>
+                                    </td>
+                                    <td style="width: 33%; text-align: center; border-right: 1px solid #ddd; vertical-align: middle;">
+                                        <div style="font-size: 11px; color: #FFC107; font-weight: 600; text-transform: uppercase;">Pendientes</div>
+                                        <div style="font-size: 18px; font-weight: 700; color: #FF8F00; margin-top: 2px;">{count_pend_agendamiento}</div>
+                                    </td>
+                                    <td style="width: 33%; text-align: center; vertical-align: middle;">
+                                        <div style="font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase;">Total</div>
+                                        <div style="font-size: 18px; font-weight: 700; color: #000; margin-top: 2px;">{total_graf_final}</div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.warning("Columna de Estado no disponible para gestión.")
 
-        with c3:
-            st.subheader("📋 Estado Pacientes")
+
+        with container_pacientes:
+            if view_mode == "General":
+                st.subheader("📋 Estado Pacientes")
+
             if 'ESTADO' in df_final.columns:
-                df_st_valid = df_final[df_final['ESTADO'].notna() & (df_final['ESTADO'] != '')]
                 
-                total_counts = df_st_valid['ESTADO'].value_counts().reset_index()
-                total_counts.columns = ['Estado', 'Total Terapias']
-                
-                col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
-                unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
-                unique_counts.columns = ['Estado', 'Pacientes']
-                
-                # --- AGREGAR SESIONES REALIZADAS (Solicitud JAIR) ---
-                df_st_viz = df_st_valid.copy()
-                
-                col_real_viz = None
-                for c in df_st_viz.columns:
-                    if "REALIZADAS" in str(c).upper():
-                        col_real_viz = c
-                        df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
-                        break
-                
-                real_counts = pd.DataFrame()
-                if col_real_viz:
-                    real_counts = df_st_viz.groupby('ESTADO')[col_real_viz].sum().reset_index()
-                    real_counts.columns = ['Estado', 'Sesiones Realizadas']
+                # --- MODO GENERAL (Original) ---
+                if view_mode == "General":
+                    df_st_valid = df_final[df_final['ESTADO'].notna() & (df_final['ESTADO'] != '')]
+                    
+                    total_counts = df_st_valid['ESTADO'].value_counts().reset_index()
+                    total_counts.columns = ['Estado', 'Total Terapias']
+                    
+                    col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
+                    unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
+                    unique_counts.columns = ['Estado', 'Pacientes']
+                    
+                    # --- AGREGAR SESIONES REALIZADAS ---
+                    df_st_viz = df_st_valid.copy()
+                    
+                    col_real_viz = None
+                    for c in df_st_viz.columns:
+                        if "REALIZADAS" in str(c).upper():
+                            col_real_viz = c
+                            df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
+                            break
+                    
+                    real_counts = pd.DataFrame()
+                    if col_real_viz:
+                        real_counts = df_st_viz.groupby('ESTADO')[col_real_viz].sum().reset_index()
+                        real_counts.columns = ['Estado', 'Sesiones Realizadas']
 
-                # --- AGREGAR SESIONES PROGRAMADAS (Solicitud JAIR) ---
-                prog_counts = pd.DataFrame()
-                col_prog_viz = None
-                for c in df_st_viz.columns:
-                    if "CANT" in str(c).upper():
-                        col_prog_viz = c
-                        df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
-                        break
-                
-                if col_prog_viz:
-                    prog_counts = df_st_viz.groupby('ESTADO')[col_prog_viz].sum().reset_index()
-                    prog_counts.columns = ['Estado', 'Sesiones Programadas']
-                
-                # Merge de todas las métricas
-                final_stats = pd.merge(total_counts, unique_counts, on='Estado')
-                if not real_counts.empty:
-                    final_stats = pd.merge(final_stats, real_counts, on='Estado')
-                if not prog_counts.empty:
-                    final_stats = pd.merge(final_stats, prog_counts, on='Estado')
-                
-                tooltip_list = ['Estado', 'Total Terapias', 'Pacientes']
-                if not prog_counts.empty:
-                    tooltip_list.append('Sesiones Programadas')
-                if not real_counts.empty:
-                    tooltip_list.append('Sesiones Realizadas')
+                    # --- AGREGAR SESIONES PROGRAMADAS ---
+                    prog_counts = pd.DataFrame()
+                    col_prog_viz = None
+                    for c in df_st_viz.columns:
+                        if "CANT" in str(c).upper():
+                            col_prog_viz = c
+                            df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
+                            break
+                    
+                    if col_prog_viz:
+                        prog_counts = df_st_viz.groupby('ESTADO')[col_prog_viz].sum().reset_index()
+                        prog_counts.columns = ['Estado', 'Sesiones Programadas']
+                    
+                    # Merge de todas las métricas
+                    final_stats = pd.merge(total_counts, unique_counts, on='Estado')
+                    if not real_counts.empty:
+                        final_stats = pd.merge(final_stats, real_counts, on='Estado')
+                    if not prog_counts.empty:
+                        final_stats = pd.merge(final_stats, prog_counts, on='Estado')
+                    
+                    tooltip_list = ['Estado', 'Total Terapias', 'Pacientes']
+                    if not prog_counts.empty:
+                        tooltip_list.append('Sesiones Programadas')
+                    if not real_counts.empty:
+                        tooltip_list.append('Sesiones Realizadas')
 
-                base_st = alt.Chart(final_stats).encode(
-                    x=alt.X('Total Terapias', title='Total'),
-                    y=alt.Y('Estado', sort='-x', title=''),
-                    tooltip=tooltip_list
-                )
-                bars_st = base_st.mark_bar(color="#FF4B4B")
-                text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text='Total Terapias')
+                    base_st = alt.Chart(final_stats).encode(
+                        x=alt.X('Total Terapias', title='Total'),
+                        y=alt.Y('Estado', sort='-x', title=''),
+                        tooltip=tooltip_list
+                    )
+                    bars_st = base_st.mark_bar(color="#FF4B4B")
+                    text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text='Total Terapias')
+                    
+                    st.altair_chart((bars_st + text_st).properties(height=350), use_container_width=True)
                 
-                st.altair_chart((bars_st + text_st).properties(height=350), use_container_width=True)
-                
+                # --- MODO MENSUAL (Vacío) ---
+                else: 
+                     pass
+
+
+
                 missing_st = df_final[df_final['PACIENTES'].notna() & (df_final['ESTADO'].isna() | (df_final['ESTADO'] == ''))].shape[0]
                 if missing_st > 0:
-                    st.warning(f"⚠️ Atención: Hay {missing_st} filas con Estado vacío.")
-                else:
-                    st.success("✅ 0 filas con Estado vacío (Datos Limpios)")
+                    st.warning(f"⚠️ {missing_st} filas con Estado vacío.")
+
             else:
                  st.warning("Columna ESTADO no encontrada")
         
         st.divider()
         
         # --- 3. GEOGRAFÍA ---
-        if 'DISTRITO' in df_final.columns:
+        if view_mode == "General" and 'DISTRITO' in df_final.columns:
              
              # --- TOGGLE DISTRIBUCIÓN POR DISTRITO (Pedido Usuario) ---
              st.subheader("🗺️ Distribución por Distritos")
@@ -1633,11 +1865,6 @@ if df is not None:
                             cant_sesiones = 0
                             
                         # Generar una fila por cada sesión teórica (1 hasta Cantidad)
-                        for i in range(1, cant_sesiones + 1):
-                            info = base_info.copy()
-                            info['NUM_SESION'] = i
-                            
-                            # Buscar fecha en columna "1", "2", etc
                             col_name = str(i)
                             fecha_val = row.get(col_name, None)
                             
@@ -1660,6 +1887,7 @@ if df is not None:
                             
                             exploded_data.append(info)
                     
+
                     # Crear DataFrame final
                     if exploded_data:
                         df_export = pd.DataFrame(exploded_data)
