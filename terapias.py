@@ -1134,7 +1134,7 @@ if df is not None:
 
         view_mode = st.radio(
             "Modo de Visualización:",
-            ["General", "Por Mes"],
+            ["General", "Por Pacientes", "Por Mes"],
             horizontal=True,
             label_visibility="collapsed",
             key="view_mode_selector"
@@ -1142,8 +1142,11 @@ if df is not None:
         
         st.divider()
 
+        # Configurar variable que determina la métrica
+        ver_por_pacientes = (view_mode == "Por Pacientes")
+
         # --- 2. GRÁFICOS ESTRATÉGICOS ---
-        if view_mode == "General":
+        if view_mode in ["General", "Por Pacientes"]:
             # Layout de 3 columnas: Terapias | Gestión (Donut) | Estados
             c1, c2, c3 = st.columns([1.2, 0.8, 1.2])
             container_terapias = c1
@@ -1160,13 +1163,14 @@ if df is not None:
             container_pacientes = c2
         
         with container_terapias:
-            if view_mode == "General":
+            if view_mode in ["General", "Por Pacientes"]:
                 st.subheader("📊 Terapias Solicitadas")
+                
             if 'ESPECIALIDAD' in df_final.columns:
 
                 
-                # --- MODO GENERAL (Original) ---
-                if view_mode == "General":
+                # --- MODO GENERAL / POR PACIENTES ---
+                if view_mode in ["General", "Por Pacientes"]:
                     # 1. Preparar datos limpios (sobre df_final)
                     df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')]
                     
@@ -1189,10 +1193,14 @@ if df is not None:
                         df_sp[col_r] = pd.to_numeric(df_sp[col_r], errors='coerce').fillna(0)
                         agg_dict['Sesiones_Realizadas'] = (col_r, 'sum')
 
-                    if 'Sesiones_Programadas' not in agg_dict and 'Sesiones_Realizadas' not in agg_dict:
-                        agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
+                    agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
                     
-                    sp_stats = df_sp.groupby('ESPECIALIDAD').agg(**agg_dict).reset_index().sort_values(by="Total_Terapias", ascending=False)
+                    sp_stats = df_sp.groupby('ESPECIALIDAD').agg(**agg_dict).reset_index()
+                    
+                    var_graf = 'Pacientes_Unicos' if ver_por_pacientes else 'Total_Terapias'
+                    titulo_graf = 'Pacientes Únicos' if ver_por_pacientes else 'Total Ordenadas'
+                    
+                    sp_stats = sp_stats.sort_values(by=var_graf, ascending=False)
                     
                     # 3. Gráfico
                     tooltip_list = [
@@ -1208,12 +1216,12 @@ if df is not None:
                         tooltip_list.append(alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos'))
 
                     base = alt.Chart(sp_stats).encode(
-                        x=alt.X('Total_Terapias', title='Total Ordenadas'),
+                        x=alt.X(var_graf, title=titulo_graf),
                         y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
                         tooltip=tooltip_list
                     )
                     bars = base.mark_bar(color="#FF4B4B")
-                    text = base.mark_text(align='left', dx=3, color='black').encode(text='Total_Terapias')
+                    text = base.mark_text(align='left', dx=3, color='black').encode(text=var_graf)
                     
                     st.altair_chart((bars + text).properties(height=350), use_container_width=True)
 
@@ -1362,26 +1370,46 @@ if df is not None:
                 st.warning("Columna ESPECIALIDAD no encontrada")
                 
         if container_gestion:
-            # Solo mostrar en MODO GENERAL
-            if view_mode == "General":
+            # Solo mostrar en MODO GENERAL o POR PACIENTES
+            if view_mode in ["General", "Por Pacientes"]:
                 with container_gestion:
                     st.subheader("⏳ Estado de Gestión")
                     if col_estado_found:
-                        # Normalizar serie para cálculos de la gráfica
-                        s_est = df_final[col_estado_found].astype(str).str.upper().str.strip()
-                        total_graf_final = len(df_final)
+                        # Si ver_por_pacientes es True, agrupar por paciente y tomar el estado más 'avanzado' 
+                        # o simplemente mapear contornos únicos.
+                        # Para mantenerlo simple y preciso:
                         
-                        # Definir grupos: FINALIZADO + EN PROCESO (Gestión Realizada) vs PENDIENTE AGENDAMIENTO
-                        count_gestion_realizada = s_est[s_est.isin(['FINALIZADO', 'EN PROCESO'])].shape[0]
-                        count_pend_agendamiento = s_est[s_est.str.contains("AGENDAMIENTO", case=False, na=False)].shape[0]
-                        count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
+                        if ver_por_pacientes:
+                            # Contar pacientes únicos por estado
+                            col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
+                            estado_counts = df_final[df_final[col_estado_found].notna()].groupby(col_estado_found)[col_id].nunique()
+                            
+                            total_graf_final = estado_counts.sum()
+                            
+                            # Identificar indices por keyword
+                            idx_realizada = [i for i in estado_counts.index if i.strip().upper() in ['FINALIZADO', 'EN PROCESO']]
+                            idx_pend = [i for i in estado_counts.index if 'AGENDAMIENTO' in i.strip().upper()]
+                            
+                            count_gestion_realizada = estado_counts[idx_realizada].sum() if idx_realizada else 0
+                            count_pend_agendamiento = estado_counts[idx_pend].sum() if idx_pend else 0
+                            count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
+                            
+                        else:
+                            # Normalizar serie para cálculos de la gráfica original (Por Terapias)
+                            s_est = df_final[col_estado_found].astype(str).str.upper().str.strip()
+                            total_graf_final = len(df_final)
+                            
+                            # Definir grupos: FINALIZADO + EN PROCESO (Gestión Realizada) vs PENDIENTE AGENDAMIENTO
+                            count_gestion_realizada = s_est[s_est.isin(['FINALIZADO', 'EN PROCESO'])].shape[0]
+                            count_pend_agendamiento = s_est[s_est.str.contains("AGENDAMIENTO", case=False, na=False)].shape[0]
+                            count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
                         
                         source_gest = pd.DataFrame({
                             "Estado": ["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
                             "Total": [count_gestion_realizada, count_pend_agendamiento, count_otros]
                         })
                         
-                        source_gest["Percentage"] = (source_gest["Total"] / total_graf_final * 100).fillna(0)
+                        source_gest["Percentage"] = (source_gest["Total"] / total_graf_final * 100).fillna(0) if total_graf_final > 0 else 0
                         source_gest["PercentageLabel"] = source_gest["Percentage"].apply(lambda x: f"{x:.1f}%")
                         
                         # Gráfico Donut base
@@ -1439,13 +1467,13 @@ if df is not None:
 
 
         with container_pacientes:
-            if view_mode == "General":
+            if view_mode in ["General", "Por Pacientes"]:
                 st.subheader("📋 Estado Pacientes")
 
             if 'ESTADO' in df_final.columns:
                 
-                # --- MODO GENERAL (Original) ---
-                if view_mode == "General":
+                # --- MODO GENERAL / POR PACIENTES ---
+                if view_mode in ["General", "Por Pacientes"]:
                     df_st_valid = df_final[df_final['ESTADO'].notna() & (df_final['ESTADO'] != '')]
                     
                     total_counts = df_st_valid['ESTADO'].value_counts().reset_index()
@@ -1490,6 +1518,11 @@ if df is not None:
                     if not prog_counts.empty:
                         final_stats = pd.merge(final_stats, prog_counts, on='Estado')
                     
+                    var_graf_st = 'Pacientes' if ver_por_pacientes else 'Total Terapias'
+                    titulo_graf_st = 'Pacientes Únicos' if ver_por_pacientes else 'Total Terapias'
+                    
+                    final_stats = final_stats.sort_values(by=var_graf_st, ascending=False)
+                    
                     tooltip_list = ['Estado', 'Total Terapias', 'Pacientes']
                     if not prog_counts.empty:
                         tooltip_list.append('Sesiones Programadas')
@@ -1497,12 +1530,12 @@ if df is not None:
                         tooltip_list.append('Sesiones Realizadas')
 
                     base_st = alt.Chart(final_stats).encode(
-                        x=alt.X('Total Terapias', title='Total'),
+                        x=alt.X(var_graf_st, title=titulo_graf_st),
                         y=alt.Y('Estado', sort='-x', title=''),
                         tooltip=tooltip_list
                     )
                     bars_st = base_st.mark_bar(color="#FF4B4B")
-                    text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text='Total Terapias')
+                    text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text=var_graf_st)
                     
                     st.altair_chart((bars_st + text_st).properties(height=350), use_container_width=True)
                 
@@ -1522,7 +1555,7 @@ if df is not None:
         st.divider()
         
         # --- 3. GEOGRAFÍA ---
-        if view_mode == "General" and 'DISTRITO' in df_final.columns:
+        if view_mode in ["General", "Por Pacientes"] and 'DISTRITO' in df_final.columns:
              
              # --- TOGGLE DISTRIBUCIÓN POR DISTRITO (Pedido Usuario) ---
              st.subheader("🗺️ Distribución por Distritos")
@@ -1532,7 +1565,7 @@ if df is not None:
                  "Métrica de Distribución:",
                  ["Distribución Pacientes por Distrito (Únicos)", "Visitas por Distrito (Total)"],
                  horizontal=True,
-                 index=0, # Por defecto Pacientes Únicos
+                 index=0 if ver_por_pacientes else 1, # Si es modo 'Por Pacientes' fuerzalo visualmente a únicos por default (o 0 que es el orginal)
                  label_visibility="collapsed"
              )
              
@@ -1545,6 +1578,8 @@ if df is not None:
              if col_dist_viz in df_final.columns:
                  data_dist = None
                  
+                 # Si ver_por_pacientes global es true, forzamos vista únicos visualmente si así lo prefieres,
+                 # O usamos la seleccion del radio botón pero con un default dinámico (hecho arriba).
                  if "Únicos" in opt_map_mode:
                      # Modo 1: Pacientes Únicos
                      if col_p_viz in df_final.columns:
