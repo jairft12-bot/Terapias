@@ -1289,6 +1289,18 @@ if df is not None:
                         col_c = next((c for c in df_list.columns if "CANT" in str(c).upper()), None)
                         col_p = next((c for c in df_list.columns if "PENDIENTES" in str(c).upper()), None)
                         
+                        # OBTENER COLUMNAS D y F (Índices 3 y 5)
+                        col_d = df_list.columns[3] if len(df_list.columns) > 3 else None
+                        col_f = df_list.columns[5] if len(df_list.columns) > 5 else None
+                        
+                        for extra_col in [col_d, col_f]:
+                            if extra_col and extra_col not in cols_grouped and extra_col not in aggs_lista:
+                                if extra_col != col_c and extra_col != col_p:
+                                    if pd.api.types.is_numeric_dtype(df_list[extra_col]):
+                                        aggs_lista[extra_col] = 'sum'
+                                    else:
+                                        aggs_lista[extra_col] = lambda x: ', '.join(set(x.dropna().astype(str)))
+                        
                         if col_c: aggs_lista[col_c] = 'sum'
                         if col_p: aggs_lista[col_p] = 'sum'
                         
@@ -1306,6 +1318,11 @@ if df is not None:
                             col_paciente: "Nombre del Paciente",
                             "ESPECIALIDAD": "Tipo de Terapias"
                         }
+                        if col_d and col_d in df_pacientes_unicos.columns and col_d not in rename_cols:
+                            rename_cols[col_d] = str(col_d).title()
+                        if col_f and col_f in df_pacientes_unicos.columns and col_f not in rename_cols:
+                            rename_cols[col_f] = str(col_f).title()
+                            
                         if col_c: rename_cols[col_c] = "Total Ordenadas"
                         if col_p: rename_cols[col_p] = "Saldo Pendiente"
                         
