@@ -1551,13 +1551,13 @@ if df is not None:
 
 
         with container_pacientes:
-            if view_mode in ["General", "Por Pacientes"]:
+            if view_mode == "General":
                 st.subheader("📋 Estado Pacientes")
 
             if 'ESTADO' in df_final.columns:
                 
-                # --- MODO GENERAL / POR PACIENTES ---
-                if view_mode in ["General", "Por Pacientes"]:
+                # --- MODO GENERAL ---
+                if view_mode == "General":
                     df_st_valid = df_final[df_final['ESTADO'].notna() & (df_final['ESTADO'] != '')]
                     
                     total_counts = df_st_valid['ESTADO'].value_counts().reset_index()
@@ -1602,8 +1602,8 @@ if df is not None:
                     if not prog_counts.empty:
                         final_stats = pd.merge(final_stats, prog_counts, on='Estado')
                     
-                    var_graf_st = 'Pacientes' if ver_por_pacientes else 'Total Terapias'
-                    titulo_graf_st = 'Pacientes Únicos' if ver_por_pacientes else 'Total Terapias'
+                    var_graf_st = 'Total Terapias'
+                    titulo_graf_st = 'Total Terapias'
                     
                     final_stats = final_stats.sort_values(by=var_graf_st, ascending=False)
                     
@@ -1623,23 +1623,25 @@ if df is not None:
                     
                     st.altair_chart((bars_st + text_st).properties(height=350), use_container_width=True)
                 
-                # --- MODO MENSUAL (Vacío) ---
+                # --- MODO MENSUAL O POR PACIENTES (Vacío para esta subsección) ---
                 else: 
                      pass
 
 
 
-                missing_st = df_final[df_final['PACIENTES'].notna() & (df_final['ESTADO'].isna() | (df_final['ESTADO'] == ''))].shape[0]
-                if missing_st > 0:
-                    st.warning(f"⚠️ {missing_st} filas con Estado vacío.")
+                if view_mode == "General":
+                     missing_st = df_final[df_final['PACIENTES'].notna() & (df_final['ESTADO'].isna() | (df_final['ESTADO'] == ''))].shape[0]
+                     if missing_st > 0:
+                         st.warning(f"⚠️ {missing_st} filas con Estado vacío.")
 
             else:
-                 st.warning("Columna ESTADO no encontrada")
+                 if view_mode == "General":
+                      st.warning("Columna ESTADO no encontrada")
         
         st.divider()
         
         # --- 3. GEOGRAFÍA ---
-        if view_mode in ["General", "Por Pacientes"] and 'DISTRITO' in df_final.columns:
+        if view_mode == "General" and 'DISTRITO' in df_final.columns:
              
              # --- TOGGLE DISTRIBUCIÓN POR DISTRITO (Pedido Usuario) ---
              st.subheader("🗺️ Distribución por Distritos")
