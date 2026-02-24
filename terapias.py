@@ -538,7 +538,12 @@ if df is not None:
         st.markdown("### 📅 Filtro de Tiempo") 
         # Texto eliminado por petición del usuario
         
-        filt_year = st.selectbox("Año:", opciones_anio, index=0)
+        # Intentar pre-seleccionar 2026 si está disponible
+        default_year_idx = 0
+        if "2026" in opciones_anio:
+            default_year_idx = opciones_anio.index("2026")
+            
+        filt_year = st.selectbox("Año:", opciones_anio, index=default_year_idx)
         filt_month_name = st.selectbox("Mes:", opciones_mes, index=0)
         
         if filt_month_name != "Todos":
