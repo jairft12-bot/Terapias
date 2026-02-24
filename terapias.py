@@ -1151,13 +1151,13 @@ if df is not None:
         ver_por_pacientes = (view_mode == "Por Pacientes")
 
         # --- 2. GRÁFICOS ESTRATÉGICOS ---
-        if view_mode in ["General", "Por Pacientes"]:
+        if view_mode == "General":
             # Layout de 3 columnas: Terapias | Gestión (Donut) | Estados
             c1, c2, c3 = st.columns([1.2, 0.8, 1.2])
             container_terapias = c1
             container_gestion = c2
             container_pacientes = c3
-        else: # Por Mes
+        else: # Por Mes y Por Pacientes
             # Layout de 1 columna (Vertical) para MAXIMIZAR TAMAÑO
             # Al usar st.container(), se apilan uno debajo del otro ocupando todo el ancho
             c1 = st.container()
@@ -1174,8 +1174,8 @@ if df is not None:
             if 'ESPECIALIDAD' in df_final.columns:
 
                 
-                # --- MODO GENERAL / POR PACIENTES ---
-                if view_mode in ["General", "Por Pacientes"]:
+                # --- MODO GENERAL ---
+                if view_mode == "General":
                     # 1. Preparar datos limpios (sobre df_final)
                     df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')]
                     
@@ -1201,38 +1201,117 @@ if df is not None:
                     agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
                     
                     sp_stats = df_sp.groupby('ESPECIALIDAD').agg(**agg_dict).reset_index()
-                    
-                    var_graf = 'Pacientes_Unicos' if ver_por_pacientes else 'Total_Terapias'
-                    titulo_graf = 'Pacientes Únicos' if ver_por_pacientes else 'Total Ordenadas'
-                    
-                    sp_stats = sp_stats.sort_values(by=var_graf, ascending=False)
+                    sp_stats = sp_stats.sort_values(by='Total_Terapias', ascending=False)
                     
                     # 3. Gráfico
                     tooltip_list = [
                         alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
                         alt.Tooltip('Total_Terapias', title='Terapias Ordenadas'),
+                        alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos')
                     ]
                     
                     if 'Sesiones_Programadas' in sp_stats.columns:
                         tooltip_list.append(alt.Tooltip('Sesiones_Programadas', title='Sesiones Programadas'))
                     if 'Sesiones_Realizadas' in sp_stats.columns:
                         tooltip_list.append(alt.Tooltip('Sesiones_Realizadas', title='Sesiones Realizadas'))
-                    if 'Pacientes_Unicos' in sp_stats.columns:
-                        tooltip_list.append(alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos'))
 
                     base = alt.Chart(sp_stats).encode(
-                        x=alt.X(var_graf, title=titulo_graf),
+                        x=alt.X('Total_Terapias', title='Total Ordenadas'),
                         y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
                         tooltip=tooltip_list
                     )
                     bars = base.mark_bar(color="#FF4B4B")
-                    text = base.mark_text(align='left', dx=3, color='black').encode(text=var_graf)
+                    text = base.mark_text(align='left', dx=3, color='black').encode(text='Total_Terapias')
                     
                     st.altair_chart((bars + text).properties(height=350), use_container_width=True)
 
                     missing_sp = df_final[df_final['ESPECIALIDAD'].isna() | (df_final['ESPECIALIDAD'] == '')].shape[0]
                     if missing_sp > 0:
                         st.warning(f"⚠️ {missing_sp} filas sin Especialidad.")
+
+                # --- MODO POR PACIENTES (NUEVO DISEÑO) ---
+                elif view_mode == "Por Pacientes":
+                    df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')].copy()
+                    
+                    if df_sp.empty:
+                        st.warning("No hay datos de especialidad disponibles para graficar.")
+                    else:
+                        col_id = 'DNI' if 'DNI' in df_sp.columns else 'PACIENTES'
+                        col_paciente = 'PACIENTES' if 'PACIENTES' in df_sp.columns else df_sp.columns[0]
+                        
+                        # Agrupar solo para contar únicos en la gráfica rápida superior
+                        sp_stats = df_sp.groupby('ESPECIALIDAD')[col_id].nunique().reset_index(name='Pacientes_Unicos')
+                        sp_stats = sp_stats.sort_values(by='Pacientes_Unicos', ascending=False)
+                        
+                        st.markdown("#### 👥 Pacientes por Especialidad")
+                        
+                        # Grafico de Barras de Pacientes unicos
+                        base = alt.Chart(sp_stats).encode(
+                            x=alt.X('Pacientes_Unicos', title='Pacientes Únicos'),
+                            y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
+                            tooltip=[
+                                alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
+                                alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos')
+                            ]
+                        )
+                        bars = base.mark_bar(color="#FF4B4B")
+                        text = base.mark_text(align='left', dx=3, color='black', fontWeight='bold').encode(text='Pacientes_Unicos')
+                        
+                        st.altair_chart((bars + text).properties(height=300), use_container_width=True)
+
+                        st.divider()
+                        
+                        # --- LISTA DESPLEGABLE CON FILTRO ---
+                        st.markdown("#### 📋 Detalle de Pacientes por Terapia")
+                        
+                        # Obtener especialidades únicas de este dataframe filtrado
+                        especialidades_disp = ["Todas"] + sorted(df_sp['ESPECIALIDAD'].unique().tolist())
+                        
+                        sel_esp = st.selectbox("Seleccione tipo de terapia:", especialidades_disp, index=0)
+                        
+                        # Filtrar df según selección
+                        if sel_esp != "Todas":
+                            df_list = df_sp[df_sp['ESPECIALIDAD'] == sel_esp]
+                        else:
+                            df_list = df_sp
+                            
+                        # Limpiar para obtener 1 fila por paciente (El usuario quiere saber CUÁNTAS personas y QUIÉNES)
+                        # Agruparemos por Paciente y traemos datos relevantes de su última gestión o suma de sesiones
+                        
+                        cols_grouped = [col_id, col_paciente]
+                        # Tomamos la primera coincidencia de especialidad si es que buscan "Todas" (para mostrar qué hace)
+                        # Y sumamos sesiones si están disponibles
+                        
+                        aggs_lista = {
+                            'ESPECIALIDAD': lambda x: ', '.join(set(x.dropna().astype(str))), # Terapias del paciente
+                        }
+                        
+                        col_c = next((c for c in df_list.columns if "CANT" in str(c).upper()), None)
+                        col_p = next((c for c in df_list.columns if "PENDIENTES" in str(c).upper()), None)
+                        
+                        if col_c: aggs_lista[col_c] = 'sum'
+                        if col_p: aggs_lista[col_p] = 'sum'
+                        
+                        # Agrupar
+                        df_pacientes_unicos = df_list.groupby(cols_grouped).agg(aggs_lista).reset_index()
+                        
+                        # Limpiar ID si numerico para vista
+                        if pd.api.types.is_numeric_dtype(df_pacientes_unicos[col_id]):
+                            df_pacientes_unicos[col_id] = df_pacientes_unicos[col_id].fillna(0).astype(int).astype(str)
+                            
+                        st.success(f"📌 Se encontraron **{len(df_pacientes_unicos)} pacientes únicos** para la selección.")
+                        
+                        # Renombrar columnas para la tabla (Mejor presentación)
+                        rename_cols = {
+                            col_paciente: "Nombre del Paciente",
+                            "ESPECIALIDAD": "Tipo de Terapias"
+                        }
+                        if col_c: rename_cols[col_c] = "Total Ordenadas"
+                        if col_p: rename_cols[col_p] = "Saldo Pendiente"
+                        
+                        df_mostrar = df_pacientes_unicos.rename(columns=rename_cols)
+                        
+                        st.dataframe(df_mostrar, hide_index=True, use_container_width=True)
                 
                 # --- MODO POR MES (Gráfico Solicitado) ---
                 else: 
