@@ -1262,18 +1262,32 @@ if df is not None:
                         st.divider()
                         
                         # --- LISTA DESPLEGABLE CON FILTRO ---
-                        st.markdown("#### 📋 Detalle de Pacientes por Terapia")
+                        st.markdown("#### 📋 Detalle de Pacientes por Terapia y Estado")
                         
-                        # Obtener especialidades únicas de este dataframe filtrado
-                        especialidades_disp = ["Todas"] + sorted(df_sp['ESPECIALIDAD'].unique().tolist())
+                        col_filt_1, col_filt_2 = st.columns(2)
                         
-                        sel_esp = st.selectbox("Seleccione tipo de terapia:", especialidades_disp, index=0)
+                        with col_filt_1:
+                            # Obtener especialidades únicas de este dataframe filtrado
+                            especialidades_disp = ["Todas"] + sorted(df_sp['ESPECIALIDAD'].unique().tolist())
+                            sel_esp = st.selectbox("Seleccione tipo de terapia:", especialidades_disp, index=0)
+                            
+                        with col_filt_2:
+                            # Filtro de Estado
+                            if 'ESTADO' in df_sp.columns:
+                                estados_disp = ["Todos"] + sorted([str(e) for e in df_sp['ESTADO'].unique().tolist() if pd.notna(e) and str(e).strip() != ''])
+                            else:
+                                estados_disp = ["Todos"]
+                                
+                            sel_estado = st.selectbox("Seleccione estado:", estados_disp, index=0)
                         
                         # Filtrar df según selección
+                        df_list = df_sp.copy()
+                        
                         if sel_esp != "Todas":
-                            df_list = df_sp[df_sp['ESPECIALIDAD'] == sel_esp]
-                        else:
-                            df_list = df_sp
+                            df_list = df_list[df_list['ESPECIALIDAD'] == sel_esp]
+                            
+                        if sel_estado != "Todos" and 'ESTADO' in df_list.columns:
+                            df_list = df_list[df_list['ESTADO'].astype(str).str.strip() == sel_estado]
                             
                         # Limpiar para obtener 1 fila por paciente (El usuario quiere saber CUÁNTAS personas y QUIÉNES)
                         # Agruparemos por Paciente y traemos datos relevantes de su última gestión o suma de sesiones
@@ -1289,7 +1303,7 @@ if df is not None:
                         col_c = next((c for c in df_list.columns if "CANT" in str(c).upper()), None)
                         col_p = next((c for c in df_list.columns if "PENDIENTES" in str(c).upper()), None)
                         
-                        # OBTENER COLUMNAS D, E, H e I (Índices 3, 4, 7, 8)
+                        # OBTENER COLUMNAS D, E, H e I (Índices 3, 4, 7, 8) 
                         col_d = df_list.columns[3] if len(df_list.columns) > 3 else None
                         col_e = df_list.columns[4] if len(df_list.columns) > 4 else None
                         col_h = df_list.columns[7] if len(df_list.columns) > 7 else None
