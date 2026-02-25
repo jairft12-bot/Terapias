@@ -1139,7 +1139,7 @@ if df is not None:
 
         view_mode = st.radio(
             "Modo de Visualización:",
-            ["General", "Por Pacientes", "Por Mes"],
+            ["General", "TERAPIAS POR PACIENTE", "Por Mes"],
             horizontal=True,
             label_visibility="collapsed",
             key="view_mode_selector"
@@ -1148,7 +1148,7 @@ if df is not None:
         st.divider()
 
         # Configurar variable que determina la métrica
-        ver_por_pacientes = (view_mode == "Por Pacientes")
+        ver_por_pacientes = (view_mode == "TERAPIAS POR PACIENTE")
 
         # --- 2. GRÁFICOS ESTRATÉGICOS ---
         if view_mode == "General":
@@ -1168,7 +1168,7 @@ if df is not None:
             container_pacientes = c2
         
         with container_terapias:
-            if view_mode in ["General", "Por Pacientes"]:
+            if view_mode in ["General", "TERAPIAS POR PACIENTE"]:
                 st.subheader("📊 Terapias Solicitadas")
                 
             if 'ESPECIALIDAD' in df_final.columns:
@@ -1230,7 +1230,7 @@ if df is not None:
                         st.warning(f"⚠️ {missing_sp} filas sin Especialidad.")
 
                 # --- MODO POR PACIENTES (NUEVO DISEÑO) ---
-                elif view_mode == "Por Pacientes":
+                elif view_mode == "TERAPIAS POR PACIENTE":
                     df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')].copy()
                     
                     if df_sp.empty:
@@ -1498,7 +1498,7 @@ if df is not None:
                 
         if container_gestion:
             # Solo mostrar en MODO GENERAL o POR PACIENTES
-            if view_mode in ["General", "Por Pacientes"]:
+            if view_mode in ["General", "TERAPIAS POR PACIENTE"]:
                 with container_gestion:
                     st.subheader("⏳ Estado de Gestión")
                     if col_estado_found:
