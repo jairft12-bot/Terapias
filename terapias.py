@@ -1157,10 +1157,21 @@ if df is not None:
             elif st.session_state.active_kpi == "pendientes":
                 st.markdown("**Resumen de Sesiones Pendientes por Terapia**")
                 if col_terapia_kpi and col_p_kpi:
-                    # Asegurar numérico antes de sumar
                     df_kpi['_temp_p'] = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0)
-                    df_show = df_kpi.groupby(col_terapia_kpi)['_temp_p'].sum().reset_index()
-                    df_show.rename(columns={'_temp_p': 'Total Pendientes'}, inplace=True)
+                    
+                    if col_estado_kpi:
+                        # Identificamos cuáles son pendientes de agendamiento y cuáles son "otras" (Agendadas)
+                        es_pend_agend = df_kpi[col_estado_kpi].astype(str).str.strip().str.upper() == "PENDIENTE AGENDAMIENTO"
+                        
+                        df_kpi['Pendiente Agendamiento'] = np.where(es_pend_agend, df_kpi['_temp_p'], 0)
+                        df_kpi['Agendadas'] = np.where(~es_pend_agend, df_kpi['_temp_p'], 0)
+                        
+                        df_show = df_kpi.groupby(col_terapia_kpi)[['Pendiente Agendamiento', 'Agendadas', '_temp_p']].sum().reset_index()
+                        df_show.rename(columns={'_temp_p': 'Total Pendientes'}, inplace=True)
+                    else:
+                        df_show = df_kpi.groupby(col_terapia_kpi)['_temp_p'].sum().reset_index()
+                        df_show.rename(columns={'_temp_p': 'Total Pendientes'}, inplace=True)
+                        
                     st.dataframe(df_show, use_container_width=True, hide_index=True)
                 else:
                     st.info("No hay columnas suficientes para agrupar las terapias.")
