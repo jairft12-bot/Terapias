@@ -1038,53 +1038,64 @@ if df is not None:
         # Bloque CSS personalizado para simular st.metric en botones
         st.markdown("""
         <style>
-        div[data-testid="stButton"] > button {
+        /* Modificar los contenedores de los botones para quitarles los bordes típicos y dejarlos como KPIs */
+        div[data-testid="column"] div[data-testid="stButton"] {
+            margin-top: 0px;
+        }
+        div[data-testid="column"] div[data-testid="stButton"] > button {
             width: 100%;
-            height: 100%;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            padding: 15px 10px;
+            height: auto;
+            border: 1px solid rgba(49, 51, 63, 0.1);
+            border-radius: 0.5rem;
+            background-color: transparent;
+            box-shadow: none;
+            padding: 1.25rem 1rem;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            justify-content: center;
+            justify-content: flex-start;
             text-align: left;
+            transition: all 0.2s ease-in-out;
         }
-        div[data-testid="stButton"] > button:hover {
+        
+        div[data-testid="column"] div[data-testid="stButton"] > button:hover {
             border-color: #ff4b4b;
-            box-shadow: 0 4px 8px rgba(255,75,75,0.15);
+            box-shadow: 0 4px 6px rgba(255,75,75,0.1);
+            transform: translateY(-2px);
+            background-color: transparent;
+            color: inherit;
         }
-        div[data-testid="stButton"] > button:active {
-            background-color: #f8f9fa;
+        
+        div[data-testid="column"] div[data-testid="stButton"] > button:active {
+            background-color: rgba(255, 75, 75, 0.05);
         }
-        /* Estilos simulando la métrica */
-        .kpi-title { font-size: 0.85rem; color: #555; margin-bottom: 5px; font-weight: 500;}
-        .kpi-value { font-size: 1.8rem; color: #111; font-weight: bold; margin-bottom: 2px;}
-        .kpi-subtitle { font-size: 0.75rem; color: #888;}
+
+        /* Hack para inyectar HTML dentro del label del boton */
+        div[data-testid="column"] div[data-testid="stButton"] > button p {
+            margin: 0;
+            width: 100%;
+        }
         </style>
         """, unsafe_allow_html=True)
-
-        with kpi1:
-            if st.button(f"Pacientes Totales\n{int(total_pacientes)}", key="btn_pacientes", on_click=set_kpi, args=("pacientes",), use_container_width=True): pass
-            st.caption("Pacientes" if total_pacientes == 1 else "Pacientes")
+        
+        # Función auxiliar para renderizar el contenido HTML del KPI dentro del label del boton
+        def get_kpi_html(title, value, caption=""):
+            # Usando la familia tipográfica por defecto de Streamlit y tamaños de metric
+            return f'''<div style="line-height: 1.2;">
+                <div style="font-size: 0.875rem; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">{title}</div>
+                <div style="font-size: 2.25rem; font-weight: 400; color: rgb(49, 51, 63);">{value}</div>
+            </div>'''
             
+        with kpi1:
+            if st.button(f"Pacientes Totales\n\n**{int(total_pacientes)}**", key="btn_pacientes", on_click=set_kpi, args=("pacientes",), use_container_width=True): pass
         with kpi2:
-            if st.button(f"Ordenes\n{int(total_terapias)}", key="btn_ordenes", on_click=set_kpi, args=("ordenes",), use_container_width=True): pass
-            st.caption("Terapias Ordenadas")
-
+            if st.button(f"Ordenes\n\n**{int(total_terapias)}**", key="btn_ordenes", on_click=set_kpi, args=("ordenes",), use_container_width=True): pass
         with kpi3:
-            if st.button(f"Total Programado\n{int(tot_prog)}", key="btn_prog", on_click=set_kpi, args=("programado",), use_container_width=True): pass
-            st.caption("Sesiones Totales")
-
+            if st.button(f"Total Programado\n\n**{int(tot_prog)}**", key="btn_prog", on_click=set_kpi, args=("programado",), use_container_width=True): pass
         with kpi4:
-            if st.button(f"Sesiones Ejecutadas\n{tasa_ejec:.1f}%", key="btn_ejec", on_click=set_kpi, args=("ejecutadas",), use_container_width=True): pass
-            st.caption(f"{int(tot_ejec)} Ejecutadas")
-
+            if st.button(f"Sesiones Ejecutadas\n\n**{tasa_ejec:.1f}%**", key="btn_ejec", on_click=set_kpi, args=("ejecutadas",), use_container_width=True): pass
         with kpi5:
-            if st.button(f"Sesiones Pendientes\n{tasa_pend:.1f}%", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True): pass
-            st.caption(f"{int(tot_pend)} Pendientes")
+            if st.button(f"Sesiones Pendientes\n\n**{tasa_pend:.1f}%**", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True): pass
 
 
         st.divider()
