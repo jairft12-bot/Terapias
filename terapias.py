@@ -1136,33 +1136,34 @@ if df is not None:
                     st.info("No hay columnas suficientes para agrupar las terapias.")
                     
             elif st.session_state.active_kpi == "ejecutadas":
-                st.markdown("**Detalle de Sesiones Ejecutadas por Paciente y Estado**")
-                cols_ejec = [col_dni_kpi]
-                if col_nombre_pac_kpi and col_nombre_pac_kpi != col_dni_kpi: cols_ejec.append(col_nombre_pac_kpi)
-                if col_terapia_kpi: cols_ejec.append(col_terapia_kpi)
-                if col_estado_kpi: cols_ejec.append(col_estado_kpi)
-                if col_r_kpi: 
-                    cols_ejec.append(col_r_kpi)
-                    df_show = df_kpi[cols_ejec][pd.to_numeric(df_kpi[col_r_kpi], errors='coerce').fillna(0).astype(int) > 0]
-                elif col_c_kpi and col_p_kpi:
-                    df_kpi['SESIONES_EJECUTADAS'] = df_kpi[col_c_kpi].fillna(0) - df_kpi[col_p_kpi].fillna(0)
-                    cols_ejec.append('SESIONES_EJECUTADAS')
-                    df_show = df_kpi[cols_ejec][df_kpi['SESIONES_EJECUTADAS'] > 0]
+                st.markdown("**Resumen de Sesiones Ejecutadas por Terapia**")
+                if col_terapia_kpi:
+                    if col_r_kpi:
+                        # Asegurar numérico antes de sumar
+                        df_kpi['_temp_r'] = pd.to_numeric(df_kpi[col_r_kpi], errors='coerce').fillna(0)
+                        df_show = df_kpi.groupby(col_terapia_kpi)['_temp_r'].sum().reset_index()
+                        df_show.rename(columns={'_temp_r': 'Total Ejecutadas'}, inplace=True)
+                        st.dataframe(df_show, use_container_width=True, hide_index=True)
+                    elif col_c_kpi and col_p_kpi:
+                        df_kpi['_temp_r'] = pd.to_numeric(df_kpi[col_c_kpi], errors='coerce').fillna(0) - pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0)
+                        df_show = df_kpi.groupby(col_terapia_kpi)['_temp_r'].sum().reset_index()
+                        df_show.rename(columns={'_temp_r': 'Total Ejecutadas'}, inplace=True)
+                        st.dataframe(df_show, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No hay datos de sesiones ejecutadas para mostrar.")
                 else:
-                    df_show = pd.DataFrame() # Fallback
-                    
-                st.dataframe(df_show, use_container_width=True, hide_index=True)
+                    st.info("No hay columnas suficientes para agrupar las terapias.")
                 
             elif st.session_state.active_kpi == "pendientes":
-                st.markdown("**Detalle de Sesiones Pendientes por Paciente y Estado**")
-                cols_pend = [col_dni_kpi]
-                if col_nombre_pac_kpi and col_nombre_pac_kpi != col_dni_kpi: cols_pend.append(col_nombre_pac_kpi)
-                if col_terapia_kpi: cols_pend.append(col_terapia_kpi)
-                if col_estado_kpi: cols_pend.append(col_estado_kpi)
-                if col_p_kpi: cols_pend.append(col_p_kpi)
-                
-                df_show = df_kpi[cols_pend][pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0).astype(int) > 0] if col_p_kpi else pd.DataFrame()
-                st.dataframe(df_show, use_container_width=True, hide_index=True)
+                st.markdown("**Resumen de Sesiones Pendientes por Terapia**")
+                if col_terapia_kpi and col_p_kpi:
+                    # Asegurar numérico antes de sumar
+                    df_kpi['_temp_p'] = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0)
+                    df_show = df_kpi.groupby(col_terapia_kpi)['_temp_p'].sum().reset_index()
+                    df_show.rename(columns={'_temp_p': 'Total Pendientes'}, inplace=True)
+                    st.dataframe(df_show, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No hay columnas suficientes para agrupar las terapias.")
 
         else:
             # ---------------------------------------------------------
