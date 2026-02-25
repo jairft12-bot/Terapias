@@ -1102,15 +1102,20 @@ if df is not None:
             # Preparar un dataframe general para mostrar
             col_terapia_kpi = 'ESPECIALIDAD' if 'ESPECIALIDAD' in df_kpi.columns else ('PROGRAMAS' if 'PROGRAMAS' in df_kpi.columns else None)
             col_estado_kpi = 'ESTADO' if 'ESTADO' in df_kpi.columns else None
+            col_nombre_pac_kpi = 'PACIENTES' if 'PACIENTES' in df_kpi.columns else None
             
             if st.session_state.active_kpi == "pacientes":
                 st.markdown("**Lista Unica de Pacientes Totales**")
-                df_show = df_kpi[[col_dni_kpi]].drop_duplicates()
+                cols_pac = [col_dni_kpi]
+                if col_nombre_pac_kpi and col_nombre_pac_kpi != col_dni_kpi: cols_pac.append(col_nombre_pac_kpi)
+                
+                df_show = df_kpi[cols_pac].drop_duplicates()
                 st.dataframe(df_show, use_container_width=True, hide_index=True)
                 
             elif st.session_state.active_kpi == "ordenes":
                 st.markdown("**Lista de Órdenes por Paciente y Tipo de Terapia**")
                 cols_ord = [col_dni_kpi]
+                if col_nombre_pac_kpi and col_nombre_pac_kpi != col_dni_kpi: cols_ord.append(col_nombre_pac_kpi)
                 if col_terapia_kpi: cols_ord.append(col_terapia_kpi)
                 df_show = df_kpi[cols_ord].drop_duplicates()
                 st.dataframe(df_show, use_container_width=True, hide_index=True)
@@ -1127,6 +1132,7 @@ if df is not None:
             elif st.session_state.active_kpi == "ejecutadas":
                 st.markdown("**Detalle de Sesiones Ejecutadas por Paciente y Estado**")
                 cols_ejec = [col_dni_kpi]
+                if col_nombre_pac_kpi and col_nombre_pac_kpi != col_dni_kpi: cols_ejec.append(col_nombre_pac_kpi)
                 if col_terapia_kpi: cols_ejec.append(col_terapia_kpi)
                 if col_estado_kpi: cols_ejec.append(col_estado_kpi)
                 if col_r_kpi: 
@@ -1144,6 +1150,7 @@ if df is not None:
             elif st.session_state.active_kpi == "pendientes":
                 st.markdown("**Detalle de Sesiones Pendientes por Paciente y Estado**")
                 cols_pend = [col_dni_kpi]
+                if col_nombre_pac_kpi and col_nombre_pac_kpi != col_dni_kpi: cols_pend.append(col_nombre_pac_kpi)
                 if col_terapia_kpi: cols_pend.append(col_terapia_kpi)
                 if col_estado_kpi: cols_pend.append(col_estado_kpi)
                 if col_p_kpi: cols_pend.append(col_p_kpi)
