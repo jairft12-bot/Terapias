@@ -1072,6 +1072,7 @@ if df is not None:
             color: #111 !important;
             margin: 0;
             line-height: 1.3;
+            white-space: pre-wrap !important;
         }
 
         /* Pseudo-elemento para la PRIMERA LÍNEA (Aplica al TÍTULO del KPI) */
