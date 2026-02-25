@@ -1040,13 +1040,14 @@ if df is not None:
         <style>
         /* Contenedor del boton para diseño Moderno Tipo Tarjeta KPI */
         div[data-testid="stButton"] > button {
-            width: 100%;
-            height: 100%;
+            width: 80% !important;
+            margin: 0 auto;
+            height: auto;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             background-color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            padding: 15px 10px;
+            padding: 10px 5px;
             display: flex;
             flex-direction: column;
             align-items: center;
