@@ -1168,7 +1168,7 @@ if df is not None:
             container_pacientes = c2
         
         with container_terapias:
-            if view_mode in ["General", "Terapias por Paciente"]:
+            if view_mode == "General":
                 st.subheader("📊 Terapias Solicitadas")
                 
             if 'ESPECIALIDAD' in df_final.columns:
