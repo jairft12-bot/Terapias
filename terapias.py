@@ -1434,11 +1434,11 @@ if df is not None:
                         )
                         
                         final_chart = (bars + text).properties(
-                            width=80, 
+                            width=100, 
                             height=300
                         ).facet(
                             column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
-                            spacing=10 
+                            spacing=0 
                         ).resolve_scale(y='shared') 
                         
                         with st.container(height=520, border=True):
@@ -1470,11 +1470,11 @@ if df is not None:
                             )
                             
                             final_chart_st = (bars_st + text_st).properties(
-                                width=80, 
+                                width=100, 
                                 height=300
                             ).facet(
                                 column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
-                                spacing=10 
+                                spacing=0 
                             ).resolve_scale(y='shared') 
                             
                             with st.container(height=520, border=True):
