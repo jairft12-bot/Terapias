@@ -1,6 +1,7 @@
 # Visor de Terapias v2.1 - Deploy Fix
 import streamlit as st
 import pandas as pd
+import numpy as np
 import io
 import time
 import datetime
