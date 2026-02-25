@@ -1035,77 +1035,76 @@ if df is not None:
         tasa_ejec = (tot_ejec / tot_prog * 100) if tot_prog > 0 else 0
         tasa_pend = (tot_pend / tot_prog * 100) if tot_prog > 0 else 0
 
-        # Bloque CSS personalizado para estilizar st.button nativamente como kpi
+        # Generamos el texto de año dinamico para los captions
+        year_str = f"en {filt_year}" if filt_year != "Todos" else "en total"
+
+        # Bloque CSS personalizado para superponer botones invisibles sobre st.metric reales
         st.markdown("""
         <style>
-        /* Contenedor del boton para diseño Moderno Tipo Tarjeta KPI */
-        div[data-testid="stButton"] > button {
-            width: 100%;
-            height: 100%;
-            border: none;
-            border-radius: 0;
-            background-color: transparent;
-            box-shadow: none;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: flex-start;
-            text-align: left;
-            transition: opacity 0.2s ease-in-out;
+        /* Desactivar clics en la métrica nativa para que pasen al botón superpuesto */
+        div[data-testid="stMetric"] {
+            pointer-events: none;
         }
         
-        div[data-testid="stButton"] > button:hover {
-            border: none;
-            box-shadow: none;
-            background-color: transparent;
+        /* Contenedor relativo para la columna que tiene una métrica */
+        div[data-testid="column"]:has(div[data-testid="stMetric"]) {
+            position: relative;
+            transition: opacity 0.2s;
+        }
+        
+        /* Efecto visual al pasar el mouse por la columna clickeable */
+        div[data-testid="column"]:has(div[data-testid="stMetric"]):hover {
             opacity: 0.6;
         }
-        
-        div[data-testid="stButton"] > button:active {
-            background-color: transparent;
+
+        /* Posicionar el botón de forma absoluta superponiendo toda la columna */
+        div[data-testid="column"]:has(div[data-testid="stMetric"]) div[data-testid="stButton"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+        }
+
+        /* Hacer el botón de streamlit completamente invisible pero clickeable */
+        div[data-testid="column"]:has(div[data-testid="stMetric"]) div[data-testid="stButton"] > button {
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            background: transparent;
             border: none;
             box-shadow: none;
-        }
-
-        /* Estilo base del parrafo (Aplica al VALOR GIGANTE que está en la segunda línea) */
-        div[data-testid="stButton"] > button p {
-            font-size: 2.25rem !important;
-            font-weight: 500 !important;
-            color: #111 !important;
-            margin: 0;
-            line-height: 1.2;
-        }
-
-        /* Pseudo-elemento para la PRIMERA LÍNEA (Aplica al TÍTULO del KPI) */
-        div[data-testid="stButton"] > button p::first-line {
-            font-size: 0.875rem !important;
-            font-weight: 400 !important;
-            color: #555 !important;
-            line-height: 1.5;
+            cursor: pointer;
+            color: transparent;
         }
         </style>
         """, unsafe_allow_html=True)
 
         with kpi1:
-            st.button(f"Pacientes Totales\n{int(total_pacientes)}", key="btn_pacientes", on_click=set_kpi, args=("pacientes",), use_container_width=True)
-            st.caption("Pacientes" if total_pacientes == 1 else "Pacientes")
+            st.metric("Pacientes Totales", int(total_pacientes), "Pacientes")
+            st.button(" ", key="btn_pacientes", on_click=set_kpi, args=("pacientes",), use_container_width=True)
+            st.caption(f"📌 {int(total_pacientes)} pacientes {year_str}")
             
         with kpi2:
-            st.button(f"Ordenes\n{int(total_terapias)}", key="btn_ordenes", on_click=set_kpi, args=("ordenes",), use_container_width=True)
-            st.caption("Terapias Ordenadas")
+            st.metric("Ordenes", int(total_terapias), "Terapias Ordenadas")
+            st.button(" ", key="btn_ordenes", on_click=set_kpi, args=("ordenes",), use_container_width=True)
+            st.caption(f"📌 {int(total_terapias)} solicitudes {year_str}")
 
         with kpi3:
-            st.button(f"Total Programado\n{int(tot_prog)}", key="btn_prog", on_click=set_kpi, args=("programado",), use_container_width=True)
-            st.caption("Sesiones Totales")
+            st.metric("Total Programado", int(tot_prog), "Sesiones Totales")
+            st.button(" ", key="btn_prog", on_click=set_kpi, args=("programado",), use_container_width=True)
+            st.caption(f"📌 {int(tot_prog)} sesiones")
 
         with kpi4:
-            st.button(f"Sesiones Ejecutadas\n{tasa_ejec:.1f}%", key="btn_ejec", on_click=set_kpi, args=("ejecutadas",), use_container_width=True)
-            st.caption(f"{int(tot_ejec)} Ejecutadas")
+            st.metric("Sesiones Ejecutadas", f"{tasa_ejec:.1f}%", f"{int(tot_ejec)} Ejecutadas")
+            st.button(" ", key="btn_ejec", on_click=set_kpi, args=("ejecutadas",), use_container_width=True)
+            st.caption(f"📌 {int(tot_ejec)} realizadas")
 
         with kpi5:
-            st.button(f"Sesiones Pendientes\n{tasa_pend:.1f}%", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True)
-            st.caption(f"{int(tot_pend)} Pendientes")
+            st.metric("Sesiones Pendientes", f"{tasa_pend:.1f}%", f"- {int(tot_pend)} Pendientes")
+            st.button(" ", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True)
+            st.caption(f"📌 {int(tot_pend)} por realizar")
 
 
         st.divider()
