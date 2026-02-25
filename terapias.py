@@ -1038,52 +1038,64 @@ if df is not None:
         # Bloque CSS personalizado para simular st.metric en botones
         st.markdown("""
         <style>
-        div[data-testid="stButton"] > button {
+        /* Contenedor del boton para diseño Moderno Tipo Tarjeta KPI */
+        div[data-testid="column"] div[data-testid="stButton"] > button {
             width: 100%;
             height: 100%;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
+            border: 1px solid rgba(49, 51, 63, 0.1);
+            border-radius: 0.5rem;
             background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            padding: 15px 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08); /* Sombra elegante */
+            padding: 1.25rem 1rem;
+            display: block;  /* Bloque para permitir HTML interno al 100% */
+            text-align: left;
+            transition: all 0.2s ease-in-out;
+            color: inherit;
         }
-        div[data-testid="stButton"] > button:hover {
+        
+        div[data-testid="column"] div[data-testid="stButton"] > button:hover {
             border-color: #ff4b4b;
-            box-shadow: 0 4px 8px rgba(255,75,75,0.15);
+            box-shadow: 0 4px 6px rgba(255,75,75,0.1);
+            transform: translateY(-2px);
         }
-        div[data-testid="stButton"] > button:active {
-            background-color: #f8f9fa;
+        
+        div[data-testid="column"] div[data-testid="stButton"] > button:active {
+            background-color: rgba(255, 75, 75, 0.05);
         }
-        /* Estilos simulando la métrica */
-        .kpi-title { font-size: 0.85rem; color: #555; margin-bottom: 5px; font-weight: 500;}
-        .kpi-value { font-size: 1.8rem; color: #111; font-weight: bold; margin-bottom: 2px;}
-        .kpi-subtitle { font-size: 0.75rem; color: #888;}
+
+        /* Anular margen del parrafo inyectado por Streamlit */
+        div[data-testid="column"] div[data-testid="stButton"] > button p {
+            margin: 0;
+            width: 100%;
+        }
         </style>
         """, unsafe_allow_html=True)
 
+        # Usamos markdown puro para engañar la estetica del st.button
+        def kpi_html(title, value):
+             return f'''<div style="line-height: 1.2;">
+                 <div style="font-size: 0.875rem; color: rgb(49, 51, 63); margin-bottom: 0px; font-weight: 400;">{title}</div>
+                 <div style="font-size: 2.25rem; font-weight: 500; color: rgb(49, 51, 63);">{value}</div>
+             </div>'''
+
         with kpi1:
-            if st.button(f"Pacientes Totales\n{int(total_pacientes)}", key="btn_pacientes", on_click=set_kpi, args=("pacientes",), use_container_width=True): pass
+            st.button(f"{kpi_html('Pacientes Totales', int(total_pacientes))}", key="btn_pacientes", on_click=set_kpi, args=("pacientes",), use_container_width=True)
             st.caption("Pacientes" if total_pacientes == 1 else "Pacientes")
             
         with kpi2:
-            if st.button(f"Ordenes\n{int(total_terapias)}", key="btn_ordenes", on_click=set_kpi, args=("ordenes",), use_container_width=True): pass
+            st.button(f"{kpi_html('Ordenes', int(total_terapias))}", key="btn_ordenes", on_click=set_kpi, args=("ordenes",), use_container_width=True)
             st.caption("Terapias Ordenadas")
 
         with kpi3:
-            if st.button(f"Total Programado\n{int(tot_prog)}", key="btn_prog", on_click=set_kpi, args=("programado",), use_container_width=True): pass
+            st.button(f"{kpi_html('Total Programado', int(tot_prog))}", key="btn_prog", on_click=set_kpi, args=("programado",), use_container_width=True)
             st.caption("Sesiones Totales")
 
         with kpi4:
-            if st.button(f"Sesiones Ejecutadas\n{tasa_ejec:.1f}%", key="btn_ejec", on_click=set_kpi, args=("ejecutadas",), use_container_width=True): pass
+            st.button(f"{kpi_html('Sesiones Ejecutadas', f'{tasa_ejec:.1f}%')}", key="btn_ejec", on_click=set_kpi, args=("ejecutadas",), use_container_width=True)
             st.caption(f"{int(tot_ejec)} Ejecutadas")
 
         with kpi5:
-            if st.button(f"Sesiones Pendientes\n{tasa_pend:.1f}%", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True): pass
+            st.button(f"{kpi_html('Sesiones Pendientes', f'{tasa_pend:.1f}%')}", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True)
             st.caption(f"{int(tot_pend)} Pendientes")
 
 
