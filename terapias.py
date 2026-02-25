@@ -1420,7 +1420,7 @@ if df is not None:
                         base = alt.Chart(agg_m).encode(
                             x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
                             y=alt.Y('Cantidad', title='Cantidad'),
-                            color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(range=['#2C3E50', '#7F8C8D', '#34495E', '#95A5A6', '#1A5276', '#5D6D7E'])), 
+                            color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(range=['#2A4B7C', '#6C7A89', '#9A5B4B', '#4B6A50', '#826555', '#5D5065'])), 
                             tooltip=[
                                 alt.Tooltip('Mes_Nombre', title='Mes'),
                                 alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
