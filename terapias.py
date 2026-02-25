@@ -1408,35 +1408,69 @@ if df is not None:
                         </style>
                         """, unsafe_allow_html=True)
 
-                        # --- LAYOUT DE 2 COLUMNAS ---
-                        col_mes_1, col_mes_2 = st.columns(2)
+                        # --- LAYOUT APILADO (UNA GRÁFICA POR FILA) ---
                         
-                        # --- COLUMNA 1: ESPECIALIDAD ---
-                        with col_mes_1:
-                            st.markdown("#### 📅 Por Especialidad")
-                            st.caption("Evolución mensual de terapias por tipo.")
+                        # --- 1ERA GRÁFICA: ESPECIALIDAD ---
+                        st.markdown("#### 📅 Por Especialidad")
+                        st.caption("Evolución mensual de terapias por tipo.")
 
-                            # Agregamos conteo existente
-                            # (agg_m ya creado arriba)
+                        # Agregamos conteo existente
+                        # (agg_m ya creado arriba)
+                        
+                        base = alt.Chart(agg_m).encode(
+                            x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
+                            y=alt.Y('Cantidad', title='Cantidad'),
+                            color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='bottom', title='Tipo de Terapia'), scale=alt.Scale(scheme='tableau10')), 
+                            tooltip=[
+                                alt.Tooltip('Mes_Nombre', title='Mes'),
+                                alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
+                                alt.Tooltip('Cantidad', title='Cantidad')
+                            ]
+                        )
+                        
+                        bars = base.mark_bar().encode(opacity=alt.value(0.9))
+                        text = base.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
+                            text=alt.Text('Cantidad')
+                        )
+                        
+                        final_chart = (bars + text).properties(
+                            width=80, 
+                            height=300
+                        ).facet(
+                            column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
+                            spacing=10 
+                        ).resolve_scale(y='shared') 
+                        
+                        with st.container(height=520, border=True):
+                             st.altair_chart(final_chart, use_container_width=True)
+
+                        # --- 2DA GRÁFICA: ESTADO ---
+                        st.markdown("#### ⏳ Por Estado")
+                        st.caption("Evolución mensual del estado de las gestiones.")
+                        
+                        if 'ESTADO' in df_m.columns:
+                            # Agrupar por Mes y ESTADO
+                            agg_st = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESTADO']).size().reset_index(name='Cantidad')
                             
-                            base = alt.Chart(agg_m).encode(
-                                x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
+                            base_st = alt.Chart(agg_st).encode(
+
+                                x=alt.X('ESTADO', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
                                 y=alt.Y('Cantidad', title='Cantidad'),
-                                color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='bottom', title='Tipo de Terapia'), scale=alt.Scale(scheme='tableau10')), 
+                                color=alt.Color('ESTADO', legend=alt.Legend(orient='bottom', title='Estado Gestión'), scale=alt.Scale(scheme='set2')), # Different color scheme
                                 tooltip=[
                                     alt.Tooltip('Mes_Nombre', title='Mes'),
-                                    alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
+                                    alt.Tooltip('ESTADO', title='Estado'),
                                     alt.Tooltip('Cantidad', title='Cantidad')
                                 ]
                             )
                             
-                            bars = base.mark_bar().encode(opacity=alt.value(0.9))
-                            text = base.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
+                            bars_st = base_st.mark_bar().encode(opacity=alt.value(0.9))
+                            text_st = base_st.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
                                 text=alt.Text('Cantidad')
                             )
                             
-                            final_chart = (bars + text).properties(
-                                width=55, 
+                            final_chart_st = (bars_st + text_st).properties(
+                                width=80, 
                                 height=300
                             ).facet(
                                 column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
@@ -1444,46 +1478,9 @@ if df is not None:
                             ).resolve_scale(y='shared') 
                             
                             with st.container(height=520, border=True):
-                                 st.altair_chart(final_chart, use_container_width=True)
-
-                        # --- COLUMNA 2: ESTADO (NUEVO) ---
-                        with col_mes_2:
-                            st.markdown("#### ⏳ Por Estado")
-                            st.caption("Evolución mensual del estado de las gestiones.")
-                            
-                            if 'ESTADO' in df_m.columns:
-                                # Agrupar por Mes y ESTADO
-                                agg_st = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESTADO']).size().reset_index(name='Cantidad')
-                                
-                                base_st = alt.Chart(agg_st).encode(
-
-                                    x=alt.X('ESTADO', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
-                                    y=alt.Y('Cantidad', title='Cantidad'),
-                                    color=alt.Color('ESTADO', legend=alt.Legend(orient='bottom', title='Estado Gestión'), scale=alt.Scale(scheme='set2')), # Different color scheme
-                                    tooltip=[
-                                        alt.Tooltip('Mes_Nombre', title='Mes'),
-                                        alt.Tooltip('ESTADO', title='Estado'),
-                                        alt.Tooltip('Cantidad', title='Cantidad')
-                                    ]
-                                )
-                                
-                                bars_st = base_st.mark_bar().encode(opacity=alt.value(0.9))
-                                text_st = base_st.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
-                                    text=alt.Text('Cantidad')
-                                )
-                                
-                                final_chart_st = (bars_st + text_st).properties(
-                                    width=55, 
-                                    height=300
-                                ).facet(
-                                    column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
-                                    spacing=10 
-                                ).resolve_scale(y='shared') 
-                                
-                                with st.container(height=450, border=True):
-                                     st.altair_chart(final_chart_st, use_container_width=True)
-                            else:
-                                st.warning("Columna ESTADO no encontrada en los datos filtrados.")
+                                 st.altair_chart(final_chart_st, use_container_width=True)
+                        else:
+                            st.warning("Columna ESTADO no encontrada en los datos filtrados.")
 
 
 
