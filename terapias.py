@@ -981,1103 +981,1182 @@ if df is not None:
                             
                             st.dataframe(df_show_stag[cols_stag], hide_index=True, use_container_width=True)
 
-        # --- 1. KPIS (TARJETAS) ---
+        # --- 0. ESTADO DEL KPI ACTIVO ---
+        if 'active_kpi' not in st.session_state:
+            st.session_state.active_kpi = None
+
+        def set_kpi(kpi_name):
+            if st.session_state.active_kpi == kpi_name:
+                st.session_state.active_kpi = None
+            else:
+                st.session_state.active_kpi = kpi_name
+
+        # --- 1. KPIS (TARJETAS COMO BOTONES) ---
         # Usar container para limpiar viz previa
         kpi_holder = st.empty()
         
         with kpi_holder.container():
             kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+            
+        # Determinar qué dataframe usar para los KPIs según el Modo de Visualización y Filtros
+        view_mode_state = st.session_state.get('view_mode_selector', 'General')
         
-        # KPI 1: Pacientes (Patrón Ejecutivo Global)
-        col_dni = 'DNI' if 'DNI' in df_base.columns else 'PACIENTES'
-        if col_dni not in df_base.columns and 'DNI ' in df_base.columns: col_dni = 'DNI '
+        if view_mode_state == "Por Mes":
+            df_kpi = df.copy()
+            # En "Por Mes", se ignora filtro de mes/año (All History) pero se aplica paciente si existe:
+            if filt_patient != "Todos" and 'PACIENTES' in df_kpi.columns:
+                 df_kpi = df_kpi[df_kpi['PACIENTES'].astype(str).str.strip().str.upper() == filt_patient]
+        else:
+            # En "General" o "Terapias por Paciente", df_final ya tiene todos los filtros (Mes, Año, Paciente)
+            df_kpi = df_final.copy()
             
-        # 1. VALOR PRINCIPAL: Global Total
-        total_global_pacientes = df_base[col_dni].nunique() if col_dni in df_base.columns else len(df_base)
-        kpi1.metric("Pacientes Totales", total_global_pacientes, "Pacientes")
+        # --- CÁLCULOS PARA KPIs DINÁMICOS ---
+        col_dni_kpi = 'DNI' if 'DNI' in df_kpi.columns else 'PACIENTES'
+        if col_dni_kpi not in df_kpi.columns and 'DNI ' in df_kpi.columns: col_dni_kpi = 'DNI '
+        total_pacientes = df_kpi[col_dni_kpi].nunique() if col_dni_kpi in df_kpi.columns else len(df_kpi)
         
-        # 2. CAPTION: Detalle del Filtro (Filtro Actual)
-        if filter_active:
-            total_final_pacientes = df_final[col_dni].nunique() if (filt_patient != "Todos" or col_dni in df_final.columns) else 0
-            if filt_patient != "Todos": total_final_pacientes = 1
-            
-            label_p = "paciente" if total_final_pacientes == 1 else "pacientes"
-            # Re-usar lógia de periodo
-            texto_periodo = ""
-            if filt_month_name != "Todos" or filt_year != "Todos":
-                texto_periodo = f" en {filt_month_name if filt_month_name != 'Todos' else ''} {filt_year if filt_year != 'Todos' else ''}".strip()
-            
-            kpi1.caption(f"📌 {total_final_pacientes} {label_p}{texto_periodo}")
+        if 'ESPECIALIDAD' in df_kpi.columns:
+            total_terapias = len(df_kpi[df_kpi['ESPECIALIDAD'].notna() & (df_kpi['ESPECIALIDAD'].astype(str).str.strip() != '')])
         else:
-            kpi1.caption(" ") # Mantiene el espacio ocupado para evitar reseteos sucios
-       
-        # KPI 2: Agendamiento (Patrón Ejecutivo Global)
-        # 1. VALOR PRINCIPAL: Global Total
-        if 'ESPECIALIDAD' in df_base.columns:
-            total_global_terapias = len(df_base[df_base['ESPECIALIDAD'].notna() & (df_base['ESPECIALIDAD'].astype(str).str.strip() != '')])
-        else:
-            total_global_terapias = len(df_base)
-
-        kpi2.metric("Ordenes", total_global_terapias, "Terapias Ordenadas")
-        
-        # 2. CAPTION: Detalle del Filtro (Filtro Actual)
-        if filter_active:
-            if 'ESPECIALIDAD' in df_final.columns:
-                total_final_terapias = len(df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'].astype(str).str.strip() != '')])
-            else:
-                total_final_terapias = len(df_final)
-                
-            label_s = "solicitud" if total_final_terapias == 1 else "solicitudes"
-            texto_periodo = ""
-            if filt_month_name != "Todos" or filt_year != "Todos":
-                texto_periodo = f" en {filt_month_name if filt_month_name != 'Todos' else ''} {filt_year if filt_year != 'Todos' else ''}".strip()
-                
-            kpi2.caption(f"📌 {total_final_terapias} {label_s}{texto_periodo}")
-        else:
-             kpi2.caption(" ")
-
-
-
-        # KPI 3, 4, 5: Desglose de Volúmenes (Patrón Ejecutivo Global)
-        try:
-            # KPI 3: Total Programado (Global)
-            kpi3.metric("Total Programado", f"{int(global_programado)}", "Sesiones Totales")
-            if filter_active:
-                label_ses = "sesión" if int(total_programado_final) == 1 else "sesiones"
-                kpi3.caption(f"📌 {int(total_programado_final)} {label_ses}")
-            else:
-                 kpi3.caption(" ")
+            total_terapias = len(df_kpi)
             
-            # KPI 4: Sesiones Ejecutadas (Global %)
-            kpi4.metric(
-                "Sesiones Ejecutadas", 
-                f"{global_tasa_ejec:.1f}%", 
-                f"{int(global_ejecutadas)} Ejecutadas"
-            )
-            if filter_active:
-                kpi4.caption(f"📌 {int(total_ejecutadas_final)} realizadas")
-            else:
-                 kpi4.caption(" ")
+        col_c_kpi = next((c for c in df_kpi.columns if "CANT" in str(c).upper()), None)
+        col_p_kpi = next((c for c in df_kpi.columns if "PENDIENTES" in str(c).upper()), None)
+        col_r_kpi = next((c for c in df_kpi.columns if "REALIZADAS" in str(c).upper() or "EJECUTADAS" in str(c).upper()), None)
+
+        tot_prog = pd.to_numeric(df_kpi[col_c_kpi], errors='coerce').fillna(0).sum() if col_c_kpi else 0
+        tot_pend = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0).sum() if col_p_kpi else 0
+        if col_r_kpi:
+            tot_ejec = pd.to_numeric(df_kpi[col_r_kpi], errors='coerce').fillna(0).sum()
+        else:
+            tot_ejec = tot_prog - tot_pend
             
-            # KPI 5: Sesiones Pendientes (Global %)
-            kpi5.metric(
-                "Sesiones Pendientes", 
-                f"{global_tasa_pend:.1f}%", 
-                f"{int(global_sesiones_saldo)} Pendientes",
-                delta_color="inverse"
-            )
-            if filter_active:
-                kpi5.caption(f"📌 {int(total_sesiones_saldo_final)} por realizar")
-            else:
-                 kpi5.caption(" ")
-                 
-        except Exception as e:
-            st.error(f"Error en KPIs de volumen: {e}")
+        tasa_ejec = (tot_ejec / tot_prog * 100) if tot_prog > 0 else 0
+        tasa_pend = (tot_pend / tot_prog * 100) if tot_prog > 0 else 0
 
-        st.divider()
-
-        # --- TOGGLE VISTA GENERAL vs MENSUAL ---
-        # "Solo trabajaremos en el local ojo" -> "Por Mes" vs "General"
-        # Usamos st.radio horizontal para simular segmented control
-        # CSS PERSONALIZADO PARA BOTONES CON SOMBRA (SIN BOLITA)
+        # Bloque CSS personalizado para simular st.metric en botones
         st.markdown("""
         <style>
-            /* Ocultar la etiqueta del radio button "Modo de Visualización" si se muestra arriba */
-            div[class*="stRadio"] > label {
-                display: none;
-            }
-            
-            /* Contenedor del grupo de botones */
-            div[role="radiogroup"] {
-                display: flex;
-                flex-direction: row;
-                gap: 12px;
-            }
-
-            /* Estilo base del botón (Label del radio) */
-            div[role="radiogroup"] > label {
-                background-color: #ffffff;
-                padding: 10px 24px;
-                border-radius: 12px;
-                cursor: pointer;
-                border: 1px solid #e0e0e0;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Sombra suave */
-                transition: all 0.3s ease;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: auto;
-            }
-            
-            /* Ocultar la "bolita" (circle) del radio button por defecto */
-            div[role="radiogroup"] > label > div:first-child {
-                display: none !important;
-            }
-
-            /* Hover del botón */
-            div[role="radiogroup"] > label:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-                border-color: #bdbdbd;
-            }
-
-            /* Botón Seleccionado */
-            div[role="radiogroup"] > label[data-checked="true"] {
-                background-color: #262730; /* Color oscuro elegante */
-                color: white;
-                border: 1px solid #262730;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            }
-            
-            /* Texto del botón seleccionado */
-            div[role="radiogroup"] > label[data-checked="true"] div {
-                color: white !important;
-                font-weight: 600;
-            }
+        div[data-testid="stButton"] > button {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 15px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            text-align: left;
+        }
+        div[data-testid="stButton"] > button:hover {
+            border-color: #ff4b4b;
+            box-shadow: 0 4px 8px rgba(255,75,75,0.15);
+        }
+        div[data-testid="stButton"] > button:active {
+            background-color: #f8f9fa;
+        }
+        /* Estilos simulando la métrica */
+        .kpi-title { font-size: 0.85rem; color: #555; margin-bottom: 5px; font-weight: 500;}
+        .kpi-value { font-size: 1.8rem; color: #111; font-weight: bold; margin-bottom: 2px;}
+        .kpi-subtitle { font-size: 0.75rem; color: #888;}
         </style>
         """, unsafe_allow_html=True)
 
-        view_mode = st.radio(
-            "Modo de Visualización:",
-            ["General", "Terapias por Paciente", "Por Mes"],
-            horizontal=True,
-            label_visibility="collapsed",
-            key="view_mode_selector"
-        )
-        
+        with kpi1:
+            if st.button(f"Pacientes Totales\n{int(total_pacientes)}", key="btn_pacientes", on_click=set_kpi, args=("pacientes",), use_container_width=True): pass
+            st.caption("Pacientes" if total_pacientes == 1 else "Pacientes")
+            
+        with kpi2:
+            if st.button(f"Ordenes\n{int(total_terapias)}", key="btn_ordenes", on_click=set_kpi, args=("ordenes",), use_container_width=True): pass
+            st.caption("Terapias Ordenadas")
+
+        with kpi3:
+            if st.button(f"Total Programado\n{int(tot_prog)}", key="btn_prog", on_click=set_kpi, args=("programado",), use_container_width=True): pass
+            st.caption("Sesiones Totales")
+
+        with kpi4:
+            if st.button(f"Sesiones Ejecutadas\n{tasa_ejec:.1f}%", key="btn_ejec", on_click=set_kpi, args=("ejecutadas",), use_container_width=True): pass
+            st.caption(f"{int(tot_ejec)} Ejecutadas")
+
+        with kpi5:
+            if st.button(f"Sesiones Pendientes\n{tasa_pend:.1f}%", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True): pass
+            st.caption(f"{int(tot_pend)} Pendientes")
+
+
         st.divider()
 
-        # Configurar variable que determina la métrica
-        ver_por_pacientes = (view_mode == "Terapias por Paciente")
-
-        # --- 2. GRÁFICOS ESTRATÉGICOS ---
-        if view_mode == "General":
-            # Layout de 3 columnas: Terapias | Gestión (Donut) | Estados
-            c1, c2, c3 = st.columns([1.2, 0.8, 1.2])
-            container_terapias = c1
-            container_gestion = c2
-            container_pacientes = c3
-        else: # Por Mes y Por Pacientes
-            # Layout de 1 columna (Vertical) para MAXIMIZAR TAMAÑO
-            # Al usar st.container(), se apilan uno debajo del otro ocupando todo el ancho
-            c1 = st.container()
-            c2 = st.container()
+        # --- LÓGICA DE MOSTRAR GRÁFICOS VS TABLA DE DETALLE ---
+        if st.session_state.active_kpi:
+            # ---------------------------------------------------------
+            # VISTA DE DETALLE DEL KPI (TABLAS)
+            # ---------------------------------------------------------
+            col_back, _ = st.columns([1, 4])
+            with col_back:
+                st.button("🔙 Volver a Gráficos", on_click=set_kpi, args=(st.session_state.active_kpi,), use_container_width=True, type="primary")
             
-            container_terapias = c1
-            container_gestion = None # Ocultar
-            container_pacientes = c2
+            st.subheader(f"📊 Detalle de Datos: {str(st.session_state.active_kpi).upper()}")
+            
+            # Preparar un dataframe general para mostrar
+            col_terapia_kpi = 'ESPECIALIDAD' if 'ESPECIALIDAD' in df_kpi.columns else ('PROGRAMAS' if 'PROGRAMAS' in df_kpi.columns else None)
+            col_estado_kpi = 'ESTADO' if 'ESTADO' in df_kpi.columns else None
+            
+            if st.session_state.active_kpi == "pacientes":
+                st.markdown("**Lista Unica de Pacientes Totales**")
+                df_show = df_kpi[[col_dni_kpi]].drop_duplicates()
+                st.dataframe(df_show, use_container_width=True, hide_index=True)
+                
+            elif st.session_state.active_kpi == "ordenes":
+                st.markdown("**Lista de Órdenes por Paciente y Tipo de Terapia**")
+                cols_ord = [col_dni_kpi]
+                if col_terapia_kpi: cols_ord.append(col_terapia_kpi)
+                df_show = df_kpi[cols_ord].drop_duplicates()
+                st.dataframe(df_show, use_container_width=True, hide_index=True)
+                
+            elif st.session_state.active_kpi == "programado":
+                st.markdown("**Resumen de Sesiones Programadas por Terapia**")
+                if col_terapia_kpi and col_c_kpi:
+                    df_show = df_kpi.groupby(col_terapia_kpi)[col_c_kpi].sum().reset_index()
+                    df_show.rename(columns={col_c_kpi: 'Total Programadas'}, inplace=True)
+                    st.dataframe(df_show, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No hay columnas suficientes para agrupar las terapias.")
+                    
+            elif st.session_state.active_kpi == "ejecutadas":
+                st.markdown("**Detalle de Sesiones Ejecutadas por Paciente y Estado**")
+                cols_ejec = [col_dni_kpi]
+                if col_terapia_kpi: cols_ejec.append(col_terapia_kpi)
+                if col_estado_kpi: cols_ejec.append(col_estado_kpi)
+                if col_r_kpi: 
+                    cols_ejec.append(col_r_kpi)
+                    df_show = df_kpi[cols_ejec][pd.to_numeric(df_kpi[col_r_kpi], errors='coerce').fillna(0).astype(int) > 0]
+                elif col_c_kpi and col_p_kpi:
+                    df_kpi['SESIONES_EJECUTADAS'] = df_kpi[col_c_kpi].fillna(0) - df_kpi[col_p_kpi].fillna(0)
+                    cols_ejec.append('SESIONES_EJECUTADAS')
+                    df_show = df_kpi[cols_ejec][df_kpi['SESIONES_EJECUTADAS'] > 0]
+                else:
+                    df_show = pd.DataFrame() # Fallback
+                    
+                st.dataframe(df_show, use_container_width=True, hide_index=True)
+                
+            elif st.session_state.active_kpi == "pendientes":
+                st.markdown("**Detalle de Sesiones Pendientes por Paciente y Estado**")
+                cols_pend = [col_dni_kpi]
+                if col_terapia_kpi: cols_pend.append(col_terapia_kpi)
+                if col_estado_kpi: cols_pend.append(col_estado_kpi)
+                if col_p_kpi: cols_pend.append(col_p_kpi)
+                
+                df_show = df_kpi[cols_pend][pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0).astype(int) > 0] if col_p_kpi else pd.DataFrame()
+                st.dataframe(df_show, use_container_width=True, hide_index=True)
+
+        else:
+            # ---------------------------------------------------------
+            # VISTA DE GRÁFICOS (SI NINGÚN KPI ESTÁ ACTIVO)
+            # ---------------------------------------------------------
+            # --- TOGGLE VISTA GENERAL vs MENSUAL ---
+            # "Solo trabajaremos en el local ojo" -> "Por Mes" vs "General"
+            # Usamos st.radio horizontal para simular segmented control
+            # CSS PERSONALIZADO PARA BOTONES CON SOMBRA (SIN BOLITA)
+            st.markdown("""
+            <style>
+                /* Ocultar la etiqueta del radio button "Modo de Visualización" si se muestra arriba */
+                div[class*="stRadio"] > label {
+                    display: none;
+                }
+            
+                /* Contenedor del grupo de botones */
+                div[role="radiogroup"] {
+                    display: flex;
+                    flex-direction: row;
+                    gap: 12px;
+                }
+
+                /* Estilo base del botón (Label del radio) */
+                div[role="radiogroup"] > label {
+                    background-color: #ffffff;
+                    padding: 10px 24px;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    border: 1px solid #e0e0e0;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Sombra suave */
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: auto;
+                }
+            
+                /* Ocultar la "bolita" (circle) del radio button por defecto */
+                div[role="radiogroup"] > label > div:first-child {
+                    display: none !important;
+                }
+
+                /* Hover del botón */
+                div[role="radiogroup"] > label:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+                    border-color: #bdbdbd;
+                }
+
+                /* Botón Seleccionado */
+                div[role="radiogroup"] > label[data-checked="true"] {
+                    background-color: #262730; /* Color oscuro elegante */
+                    color: white;
+                    border: 1px solid #262730;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                }
+            
+                /* Texto del botón seleccionado */
+                div[role="radiogroup"] > label[data-checked="true"] div {
+                    color: white !important;
+                    font-weight: 600;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+
+            view_mode = st.radio(
+                "Modo de Visualización:",
+                ["General", "Terapias por Paciente", "Por Mes"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="view_mode_selector"
+            )
         
-        with container_terapias:
+            st.divider()
+
+            # Configurar variable que determina la métrica
+            ver_por_pacientes = (view_mode == "Terapias por Paciente")
+
+            # --- 2. GRÁFICOS ESTRATÉGICOS ---
             if view_mode == "General":
-                st.subheader("📊 Terapias Solicitadas")
-                
-            if 'ESPECIALIDAD' in df_final.columns:
-
-                
-                # --- MODO GENERAL ---
+                # Layout de 3 columnas: Terapias | Gestión (Donut) | Estados
+                c1, c2, c3 = st.columns([1.2, 0.8, 1.2])
+                container_terapias = c1
+                container_gestion = c2
+                container_pacientes = c3
+            else: # Por Mes y Por Pacientes
+                # Layout de 1 columna (Vertical) para MAXIMIZAR TAMAÑO
+                # Al usar st.container(), se apilan uno debajo del otro ocupando todo el ancho
+                c1 = st.container()
+                c2 = st.container()
+            
+                container_terapias = c1
+                container_gestion = None # Ocultar
+                container_pacientes = c2
+        
+            with container_terapias:
                 if view_mode == "General":
-                    # 1. Preparar datos limpios (sobre df_final)
-                    df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')]
-                    
-                    # 2. Calcular estadisticas
-                    col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
-                    
-                    agg_dict = {
-                        'Total_Terapias': ('ESPECIALIDAD', 'count')
-                    }
-                    
-                    # JAIR: Sumamos Sesiones Programadas y Realizadas
-                    col_c = next((c for c in df_sp.columns if "CANT" in str(c).upper()), None)
-                    col_r = next((c for c in df_sp.columns if "REALIZADAS" in str(c).upper() or "EJECUTADAS" in str(c).upper()), None)
+                    st.subheader("📊 Terapias Solicitadas")
+                
+                if 'ESPECIALIDAD' in df_final.columns:
 
-                    if col_c:
-                        df_sp[col_c] = pd.to_numeric(df_sp[col_c], errors='coerce').fillna(0)
-                        agg_dict['Sesiones_Programadas'] = (col_c, 'sum')
+                
+                    # --- MODO GENERAL ---
+                    if view_mode == "General":
+                        # 1. Preparar datos limpios (sobre df_final)
+                        df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')]
                     
-                    if col_r:
-                        df_sp[col_r] = pd.to_numeric(df_sp[col_r], errors='coerce').fillna(0)
-                        agg_dict['Sesiones_Realizadas'] = (col_r, 'sum')
+                        # 2. Calcular estadisticas
+                        col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
+                    
+                        agg_dict = {
+                            'Total_Terapias': ('ESPECIALIDAD', 'count')
+                        }
+                    
+                        # JAIR: Sumamos Sesiones Programadas y Realizadas
+                        col_c = next((c for c in df_sp.columns if "CANT" in str(c).upper()), None)
+                        col_r = next((c for c in df_sp.columns if "REALIZADAS" in str(c).upper() or "EJECUTADAS" in str(c).upper()), None)
 
-                    agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
+                        if col_c:
+                            df_sp[col_c] = pd.to_numeric(df_sp[col_c], errors='coerce').fillna(0)
+                            agg_dict['Sesiones_Programadas'] = (col_c, 'sum')
                     
-                    sp_stats = df_sp.groupby('ESPECIALIDAD').agg(**agg_dict).reset_index()
-                    sp_stats = sp_stats.sort_values(by='Total_Terapias', ascending=False)
-                    
-                    # 3. Gráfico
-                    tooltip_list = [
-                        alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
-                        alt.Tooltip('Total_Terapias', title='Terapias Ordenadas'),
-                        alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos')
-                    ]
-                    
-                    if 'Sesiones_Programadas' in sp_stats.columns:
-                        tooltip_list.append(alt.Tooltip('Sesiones_Programadas', title='Sesiones Programadas'))
-                    if 'Sesiones_Realizadas' in sp_stats.columns:
-                        tooltip_list.append(alt.Tooltip('Sesiones_Realizadas', title='Sesiones Realizadas'))
+                        if col_r:
+                            df_sp[col_r] = pd.to_numeric(df_sp[col_r], errors='coerce').fillna(0)
+                            agg_dict['Sesiones_Realizadas'] = (col_r, 'sum')
 
-                    base = alt.Chart(sp_stats).encode(
-                        x=alt.X('Total_Terapias', title='Total Ordenadas'),
-                        y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
-                        tooltip=tooltip_list
-                    )
-                    bars = base.mark_bar(color="#FF4B4B")
-                    text = base.mark_text(align='left', dx=3, color='black').encode(text='Total_Terapias')
+                        agg_dict['Pacientes_Unicos'] = (col_id, 'nunique')
                     
-                    st.altair_chart((bars + text).properties(height=350), use_container_width=True)
-
-                    missing_sp = df_final[df_final['ESPECIALIDAD'].isna() | (df_final['ESPECIALIDAD'] == '')].shape[0]
-                    if missing_sp > 0:
-                        st.warning(f"⚠️ {missing_sp} filas sin Especialidad.")
-
-                # --- MODO POR PACIENTES (NUEVO DISEÑO) ---
-                elif view_mode == "Terapias por Paciente":
-                    df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')].copy()
+                        sp_stats = df_sp.groupby('ESPECIALIDAD').agg(**agg_dict).reset_index()
+                        sp_stats = sp_stats.sort_values(by='Total_Terapias', ascending=False)
                     
-                    if df_sp.empty:
-                        st.warning("No hay datos de especialidad disponibles para graficar.")
-                    else:
-                        col_id = 'DNI' if 'DNI' in df_sp.columns else 'PACIENTES'
-                        col_paciente = 'PACIENTES' if 'PACIENTES' in df_sp.columns else df_sp.columns[0]
-                        
-                        # Agrupar solo para contar únicos en la gráfica rápida superior
-                        sp_stats = df_sp.groupby('ESPECIALIDAD')[col_id].nunique().reset_index(name='Pacientes_Unicos')
-                        sp_stats = sp_stats.sort_values(by='Pacientes_Unicos', ascending=False)
-                        
-                        st.markdown("#### 👥 Pacientes por Especialidad")
-                        
-                        # Grafico de Barras de Pacientes unicos
+                        # 3. Gráfico
+                        tooltip_list = [
+                            alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
+                            alt.Tooltip('Total_Terapias', title='Terapias Ordenadas'),
+                            alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos')
+                        ]
+                    
+                        if 'Sesiones_Programadas' in sp_stats.columns:
+                            tooltip_list.append(alt.Tooltip('Sesiones_Programadas', title='Sesiones Programadas'))
+                        if 'Sesiones_Realizadas' in sp_stats.columns:
+                            tooltip_list.append(alt.Tooltip('Sesiones_Realizadas', title='Sesiones Realizadas'))
+
                         base = alt.Chart(sp_stats).encode(
-                            x=alt.X('Pacientes_Unicos', title='Pacientes Únicos'),
+                            x=alt.X('Total_Terapias', title='Total Ordenadas'),
                             y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
-                            tooltip=[
-                                alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
-                                alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos')
-                            ]
+                            tooltip=tooltip_list
                         )
                         bars = base.mark_bar(color="#FF4B4B")
-                        text = base.mark_text(align='left', dx=3, color='black', fontWeight='bold').encode(text='Pacientes_Unicos')
-                        
-                        st.altair_chart((bars + text).properties(height=300), use_container_width=True)
+                        text = base.mark_text(align='left', dx=3, color='black').encode(text='Total_Terapias')
+                    
+                        st.altair_chart((bars + text).properties(height=350), use_container_width=True)
 
-                        st.divider()
+                        missing_sp = df_final[df_final['ESPECIALIDAD'].isna() | (df_final['ESPECIALIDAD'] == '')].shape[0]
+                        if missing_sp > 0:
+                            st.warning(f"⚠️ {missing_sp} filas sin Especialidad.")
+
+                    # --- MODO POR PACIENTES (NUEVO DISEÑO) ---
+                    elif view_mode == "Terapias por Paciente":
+                        df_sp = df_final[df_final['ESPECIALIDAD'].notna() & (df_final['ESPECIALIDAD'] != '')].copy()
+                    
+                        if df_sp.empty:
+                            st.warning("No hay datos de especialidad disponibles para graficar.")
+                        else:
+                            col_id = 'DNI' if 'DNI' in df_sp.columns else 'PACIENTES'
+                            col_paciente = 'PACIENTES' if 'PACIENTES' in df_sp.columns else df_sp.columns[0]
                         
-                        # --- LISTA DESPLEGABLE CON FILTRO ---
-                        st.markdown("#### 📋 Detalle de Pacientes por Terapia y Estado")
+                            # Agrupar solo para contar únicos en la gráfica rápida superior
+                            sp_stats = df_sp.groupby('ESPECIALIDAD')[col_id].nunique().reset_index(name='Pacientes_Unicos')
+                            sp_stats = sp_stats.sort_values(by='Pacientes_Unicos', ascending=False)
                         
-                        col_filt_1, col_filt_2 = st.columns(2)
+                            st.markdown("#### 👥 Pacientes por Especialidad")
                         
-                        with col_filt_1:
-                            # Obtener especialidades únicas de este dataframe filtrado
-                            especialidades_disp = ["Todas"] + sorted(df_sp['ESPECIALIDAD'].unique().tolist())
-                            sel_esp = st.selectbox("Seleccione tipo de terapia:", especialidades_disp, index=0)
+                            # Grafico de Barras de Pacientes unicos
+                            base = alt.Chart(sp_stats).encode(
+                                x=alt.X('Pacientes_Unicos', title='Pacientes Únicos'),
+                                y=alt.Y('ESPECIALIDAD', sort='-x', title=''),
+                                tooltip=[
+                                    alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
+                                    alt.Tooltip('Pacientes_Unicos', title='Pacientes Únicos')
+                                ]
+                            )
+                            bars = base.mark_bar(color="#FF4B4B")
+                            text = base.mark_text(align='left', dx=3, color='black', fontWeight='bold').encode(text='Pacientes_Unicos')
+                        
+                            st.altair_chart((bars + text).properties(height=300), use_container_width=True)
+
+                            st.divider()
+                        
+                            # --- LISTA DESPLEGABLE CON FILTRO ---
+                            st.markdown("#### 📋 Detalle de Pacientes por Terapia y Estado")
+                        
+                            col_filt_1, col_filt_2 = st.columns(2)
+                        
+                            with col_filt_1:
+                                # Obtener especialidades únicas de este dataframe filtrado
+                                especialidades_disp = ["Todas"] + sorted(df_sp['ESPECIALIDAD'].unique().tolist())
+                                sel_esp = st.selectbox("Seleccione tipo de terapia:", especialidades_disp, index=0)
                             
-                        with col_filt_2:
-                            # Filtro de Estado
-                            if 'ESTADO' in df_sp.columns:
-                                estados_disp = ["Todos"] + sorted([str(e) for e in df_sp['ESTADO'].unique().tolist() if pd.notna(e) and str(e).strip() != ''])
-                            else:
-                                estados_disp = ["Todos"]
+                            with col_filt_2:
+                                # Filtro de Estado
+                                if 'ESTADO' in df_sp.columns:
+                                    estados_disp = ["Todos"] + sorted([str(e) for e in df_sp['ESTADO'].unique().tolist() if pd.notna(e) and str(e).strip() != ''])
+                                else:
+                                    estados_disp = ["Todos"]
                                 
-                            sel_estado = st.selectbox("Seleccione estado:", estados_disp, index=0)
+                                sel_estado = st.selectbox("Seleccione estado:", estados_disp, index=0)
                         
-                        # Filtrar df según selección
-                        df_list = df_sp.copy()
+                            # Filtrar df según selección
+                            df_list = df_sp.copy()
                         
-                        if sel_esp != "Todas":
-                            df_list = df_list[df_list['ESPECIALIDAD'] == sel_esp]
+                            if sel_esp != "Todas":
+                                df_list = df_list[df_list['ESPECIALIDAD'] == sel_esp]
                             
-                        if sel_estado != "Todos" and 'ESTADO' in df_list.columns:
-                            df_list = df_list[df_list['ESTADO'].astype(str).str.strip() == sel_estado]
+                            if sel_estado != "Todos" and 'ESTADO' in df_list.columns:
+                                df_list = df_list[df_list['ESTADO'].astype(str).str.strip() == sel_estado]
                             
-                        # Limpiar para obtener 1 fila por paciente (El usuario quiere saber CUÁNTAS personas y QUIÉNES)
-                        # Agruparemos por Paciente y traemos datos relevantes de su última gestión o suma de sesiones
+                            # Limpiar para obtener 1 fila por paciente (El usuario quiere saber CUÁNTAS personas y QUIÉNES)
+                            # Agruparemos por Paciente y traemos datos relevantes de su última gestión o suma de sesiones
                         
-                        cols_grouped = [col_id, col_paciente]
-                        # Tomamos la primera coincidencia de especialidad si es que buscan "Todas" (para mostrar qué hace)
-                        # Y sumamos sesiones si están disponibles
+                            cols_grouped = [col_id, col_paciente]
+                            # Tomamos la primera coincidencia de especialidad si es que buscan "Todas" (para mostrar qué hace)
+                            # Y sumamos sesiones si están disponibles
                         
-                        aggs_lista = {
-                            'ESPECIALIDAD': lambda x: ', '.join(set(x.dropna().astype(str))), # Terapias del paciente
-                        }
+                            aggs_lista = {
+                                'ESPECIALIDAD': lambda x: ', '.join(set(x.dropna().astype(str))), # Terapias del paciente
+                            }
                         
-                        col_c = next((c for c in df_list.columns if "CANT" in str(c).upper()), None)
-                        col_p = next((c for c in df_list.columns if "PENDIENTES" in str(c).upper()), None)
+                            col_c = next((c for c in df_list.columns if "CANT" in str(c).upper()), None)
+                            col_p = next((c for c in df_list.columns if "PENDIENTES" in str(c).upper()), None)
                         
-                        # OBTENER COLUMNAS D, E, H e I (Índices 3, 4, 7, 8) 
-                        col_d = df_list.columns[3] if len(df_list.columns) > 3 else None
-                        col_e = df_list.columns[4] if len(df_list.columns) > 4 else None
-                        col_h = df_list.columns[7] if len(df_list.columns) > 7 else None
-                        col_i = df_list.columns[8] if len(df_list.columns) > 8 else None
-                        col_j = df_list.columns[9] if len(df_list.columns) > 9 else None
-                        col_aj = df_list.columns[35] if len(df_list.columns) > 35 else None
+                            # OBTENER COLUMNAS D, E, H e I (Índices 3, 4, 7, 8) 
+                            col_d = df_list.columns[3] if len(df_list.columns) > 3 else None
+                            col_e = df_list.columns[4] if len(df_list.columns) > 4 else None
+                            col_h = df_list.columns[7] if len(df_list.columns) > 7 else None
+                            col_i = df_list.columns[8] if len(df_list.columns) > 8 else None
+                            col_j = df_list.columns[9] if len(df_list.columns) > 9 else None
+                            col_aj = df_list.columns[35] if len(df_list.columns) > 35 else None
                         
-                        for extra_col in [col_d, col_e, col_h, col_i, col_j, col_aj]:
-                            if extra_col and extra_col not in cols_grouped and extra_col not in aggs_lista:
-                                if extra_col != col_c and extra_col != col_p:
-                                    if pd.api.types.is_numeric_dtype(df_list[extra_col]):
-                                        aggs_lista[extra_col] = 'sum'
-                                    else:
-                                        aggs_lista[extra_col] = lambda x: ', '.join(set(x.dropna().astype(str)))
+                            for extra_col in [col_d, col_e, col_h, col_i, col_j, col_aj]:
+                                if extra_col and extra_col not in cols_grouped and extra_col not in aggs_lista:
+                                    if extra_col != col_c and extra_col != col_p:
+                                        if pd.api.types.is_numeric_dtype(df_list[extra_col]):
+                                            aggs_lista[extra_col] = 'sum'
+                                        else:
+                                            aggs_lista[extra_col] = lambda x: ', '.join(set(x.dropna().astype(str)))
                         
-                        if col_c: aggs_lista[col_c] = 'sum'
-                        if col_p: aggs_lista[col_p] = 'sum'
+                            if col_c: aggs_lista[col_c] = 'sum'
+                            if col_p: aggs_lista[col_p] = 'sum'
                         
-                        # Agrupar
-                        df_pacientes_unicos = df_list.groupby(cols_grouped).agg(aggs_lista).reset_index()
+                            # Agrupar
+                            df_pacientes_unicos = df_list.groupby(cols_grouped).agg(aggs_lista).reset_index()
                         
-                        # Limpiar ID si numerico para vista
-                        if pd.api.types.is_numeric_dtype(df_pacientes_unicos[col_id]):
-                            df_pacientes_unicos[col_id] = df_pacientes_unicos[col_id].fillna(0).astype(int).astype(str)
+                            # Limpiar ID si numerico para vista
+                            if pd.api.types.is_numeric_dtype(df_pacientes_unicos[col_id]):
+                                df_pacientes_unicos[col_id] = df_pacientes_unicos[col_id].fillna(0).astype(int).astype(str)
                             
-                        st.success(f"📌 Se encontraron **{len(df_pacientes_unicos)} pacientes únicos** para la selección.")
+                            st.success(f"📌 Se encontraron **{len(df_pacientes_unicos)} pacientes únicos** para la selección.")
                         
-                        # Renombrar columnas para la tabla (Mejor presentación)
-                        rename_cols = {
-                            col_paciente: "Nombre del Paciente",
-                            "ESPECIALIDAD": "Tipo de Terapias"
-                        }
-                        if col_d and col_d in df_pacientes_unicos.columns and col_d not in rename_cols:
-                            rename_cols[col_d] = str(col_d).title()
-                        if col_e and col_e in df_pacientes_unicos.columns and col_e not in rename_cols:
-                            rename_cols[col_e] = "TLF"
-                        if col_h and col_h in df_pacientes_unicos.columns and col_h not in rename_cols:
-                            rename_cols[col_h] = "DISTRITO"
-                        if col_i and col_i in df_pacientes_unicos.columns and col_i not in rename_cols:
-                            rename_cols[col_i] = "PROGRAMAS"
-                        if col_j and col_j in df_pacientes_unicos.columns and col_j not in rename_cols:
-                            rename_cols[col_j] = "FECHA ORDEN"
-                        if col_aj and col_aj in df_pacientes_unicos.columns and col_aj not in rename_cols:
-                            rename_cols[col_aj] = "OBSERVACIÓN"
+                            # Renombrar columnas para la tabla (Mejor presentación)
+                            rename_cols = {
+                                col_paciente: "Nombre del Paciente",
+                                "ESPECIALIDAD": "Tipo de Terapias"
+                            }
+                            if col_d and col_d in df_pacientes_unicos.columns and col_d not in rename_cols:
+                                rename_cols[col_d] = str(col_d).title()
+                            if col_e and col_e in df_pacientes_unicos.columns and col_e not in rename_cols:
+                                rename_cols[col_e] = "TLF"
+                            if col_h and col_h in df_pacientes_unicos.columns and col_h not in rename_cols:
+                                rename_cols[col_h] = "DISTRITO"
+                            if col_i and col_i in df_pacientes_unicos.columns and col_i not in rename_cols:
+                                rename_cols[col_i] = "PROGRAMAS"
+                            if col_j and col_j in df_pacientes_unicos.columns and col_j not in rename_cols:
+                                rename_cols[col_j] = "FECHA ORDEN"
+                            if col_aj and col_aj in df_pacientes_unicos.columns and col_aj not in rename_cols:
+                                rename_cols[col_aj] = "OBSERVACIÓN"
                             
-                        if col_c: rename_cols[col_c] = "Total Ordenadas"
-                        if col_p: rename_cols[col_p] = "Saldo Pendiente"
+                            if col_c: rename_cols[col_c] = "Total Ordenadas"
+                            if col_p: rename_cols[col_p] = "Saldo Pendiente"
                         
-                        df_mostrar = df_pacientes_unicos.rename(columns=rename_cols)
+                            df_mostrar = df_pacientes_unicos.rename(columns=rename_cols)
                         
-                        st.dataframe(df_mostrar, hide_index=True, use_container_width=True)
+                            st.dataframe(df_mostrar, hide_index=True, use_container_width=True)
                 
-                # --- MODO POR MES (Gráfico Solicitado) ---
-                else: 
-                    # 1. Preparar datos (SIN FILTRO DE FECHA - "All History")
-                    # El usuario quiere ver la evolución completa (incluyendo futuros como Ene 2026),
-                    # independientemente del filtro de año seleccionado en el sidebar.
+                    # --- MODO POR MES (Gráfico Solicitado) ---
+                    else: 
+                        # 1. Preparar datos (SIN FILTRO DE FECHA - "All History")
+                        # El usuario quiere ver la evolución completa (incluyendo futuros como Ene 2026),
+                        # independientemente del filtro de año seleccionado en el sidebar.
                     
-                    df_history = df.copy()
+                        df_history = df.copy()
                     
-                    # Aplicar SOLO filtro de Paciente si está activo
-                    if filt_patient != "Todos":
-                         if 'PACIENTES' in df_history.columns:
-                             df_history = df_history[df_history['PACIENTES'].astype(str).str.strip().str.upper() == filt_patient]
+                        # Aplicar SOLO filtro de Paciente si está activo
+                        if filt_patient != "Todos":
+                             if 'PACIENTES' in df_history.columns:
+                                 df_history = df_history[df_history['PACIENTES'].astype(str).str.strip().str.upper() == filt_patient]
 
-                    if 'FECHA_CLAVE' in df_history.columns and 'ESPECIALIDAD' in df_history.columns:
-                        df_m = df_history[df_history['ESPECIALIDAD'].notna() & (df_history['ESPECIALIDAD'] != '') & df_history['FECHA_CLAVE'].notna()].copy()
-                        df_m['FECHA_CLAVE'] = pd.to_datetime(df_m['FECHA_CLAVE'], errors='coerce')
-                        df_m = df_m.dropna(subset=['FECHA_CLAVE'])
-
-                        
-                        # Usamos el primer día del mes para ordenamiento correcto (Ene, Feb, Mar...)
-                        df_m['Mes_Orden'] = df_m['FECHA_CLAVE'].apply(lambda x: x.replace(day=1))
-                        
-                        # Mapeo de Meses a Español corto con Año (Ejes: Ene25, Feb25...)
-                        # Format similar to user request: "ener25" -> "Ene25"
-                        
-                        def format_mes_anio(d):
-                            meses_corto = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-                            m = meses_corto[d.month]
-                            y = str(d.year)[-2:] # Últimos 2 dígitos
-                            return f"{m}{y}"
-
-                        df_m['Mes_Nombre'] = df_m['Mes_Orden'].apply(format_mes_anio)
-
-                        # Agregamos conteo (Incluimos Mes_Orden y Mes_Nombre para poder ordenar)
-                        agg_m = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESPECIALIDAD']).size().reset_index(name='Cantidad')
+                        if 'FECHA_CLAVE' in df_history.columns and 'ESPECIALIDAD' in df_history.columns:
+                            df_m = df_history[df_history['ESPECIALIDAD'].notna() & (df_history['ESPECIALIDAD'] != '') & df_history['FECHA_CLAVE'].notna()].copy()
+                            df_m['FECHA_CLAVE'] = pd.to_datetime(df_m['FECHA_CLAVE'], errors='coerce')
+                            df_m = df_m.dropna(subset=['FECHA_CLAVE'])
 
                         
-                        st.markdown(f"""
+                            # Usamos el primer día del mes para ordenamiento correcto (Ene, Feb, Mar...)
+                            df_m['Mes_Orden'] = df_m['FECHA_CLAVE'].apply(lambda x: x.replace(day=1))
+                        
+                            # Mapeo de Meses a Español corto con Año (Ejes: Ene25, Feb25...)
+                            # Format similar to user request: "ener25" -> "Ene25"
+                        
+                            def format_mes_anio(d):
+                                meses_corto = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+                                m = meses_corto[d.month]
+                                y = str(d.year)[-2:] # Últimos 2 dígitos
+                                return f"{m}{y}"
 
-                        <style>
-                        /* Estilo de sombra personalizado para el gráfico */
-                        .chart-container {{
-                            background-color: white;
-                            padding: 20px;
-                            border-radius: 12px;
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* Sombra suave */
-                            border: 1px solid #eee;
-                            margin-bottom: 20px;
-                        }}
-                        </style>
-                        """, unsafe_allow_html=True)
+                            df_m['Mes_Nombre'] = df_m['Mes_Orden'].apply(format_mes_anio)
 
-                        # --- LAYOUT APILADO (UNA GRÁFICA POR FILA) ---
-                        
-                        # --- 1ERA GRÁFICA: ESPECIALIDAD ---
-                        st.markdown("#### 📅 Por Especialidad")
-                        st.caption("Evolución mensual de terapias por tipo.")
+                            # Agregamos conteo (Incluimos Mes_Orden y Mes_Nombre para poder ordenar)
+                            agg_m = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESPECIALIDAD']).size().reset_index(name='Cantidad')
 
-                        # Agregamos conteo existente
-                        # (agg_m ya creado arriba)
                         
-                        base = alt.Chart(agg_m).encode(
-                            x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
-                            y=alt.Y('Cantidad', title='Cantidad'),
-                            color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(range=['#2A4B7C', '#6C7A89', '#9A5B4B', '#4B6A50', '#826555', '#5D5065'])), 
-                            tooltip=[
-                                alt.Tooltip('Mes_Nombre', title='Mes'),
-                                alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
-                                alt.Tooltip('Cantidad', title='Cantidad')
-                            ]
-                        )
-                        
-                        bars = base.mark_bar().encode(opacity=alt.value(0.9))
-                        text = base.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
-                            text=alt.Text('Cantidad')
-                        )
-                        
-                        final_chart = (bars + text).properties(
-                            width=alt.Step(40), 
-                            height=300
-                        ).facet(
-                            column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
-                            spacing=5 
-                        ).resolve_scale(y='shared') 
-                        
-                        with st.container(height=450, border=True):
-                             st.altair_chart(final_chart, use_container_width=True)
+                            st.markdown(f"""
 
-                        # --- 2DA GRÁFICA: ESTADO ---
-                        st.markdown("#### ⏳ Por Estado")
-                        st.caption("Evolución mensual del estado de las gestiones.")
-                        
-                        if 'ESTADO' in df_m.columns:
-                            # Agrupar por Mes y ESTADO
-                            agg_st = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESTADO']).size().reset_index(name='Cantidad')
-                            
-                            base_st = alt.Chart(agg_st).encode(
+                            <style>
+                            /* Estilo de sombra personalizado para el gráfico */
+                            .chart-container {{
+                                background-color: white;
+                                padding: 20px;
+                                border-radius: 12px;
+                                box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* Sombra suave */
+                                border: 1px solid #eee;
+                                margin-bottom: 20px;
+                            }}
+                            </style>
+                            """, unsafe_allow_html=True)
 
-                                x=alt.X('ESTADO', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
+                            # --- LAYOUT APILADO (UNA GRÁFICA POR FILA) ---
+                        
+                            # --- 1ERA GRÁFICA: ESPECIALIDAD ---
+                            st.markdown("#### 📅 Por Especialidad")
+                            st.caption("Evolución mensual de terapias por tipo.")
+
+                            # Agregamos conteo existente
+                            # (agg_m ya creado arriba)
+                        
+                            base = alt.Chart(agg_m).encode(
+                                x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
                                 y=alt.Y('Cantidad', title='Cantidad'),
-                                color=alt.Color('ESTADO', legend=alt.Legend(orient='right', title='Estado Gestión'), scale=alt.Scale(range=['#4A235A', '#6E2C00', '#145A32', '#1B4F72', '#78281F', '#4D5656'])), # Sober executive color scheme
+                                color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(range=['#2A4B7C', '#6C7A89', '#9A5B4B', '#4B6A50', '#826555', '#5D5065'])), 
                                 tooltip=[
                                     alt.Tooltip('Mes_Nombre', title='Mes'),
-                                    alt.Tooltip('ESTADO', title='Estado'),
+                                    alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
                                     alt.Tooltip('Cantidad', title='Cantidad')
                                 ]
                             )
-                            
-                            bars_st = base_st.mark_bar().encode(opacity=alt.value(0.9))
-                            text_st = base_st.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
+                        
+                            bars = base.mark_bar().encode(opacity=alt.value(0.9))
+                            text = base.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
                                 text=alt.Text('Cantidad')
                             )
-                            
-                            final_chart_st = (bars_st + text_st).properties(
+                        
+                            final_chart = (bars + text).properties(
                                 width=alt.Step(40), 
                                 height=300
                             ).facet(
                                 column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
                                 spacing=5 
                             ).resolve_scale(y='shared') 
-                            
+                        
                             with st.container(height=450, border=True):
-                                 st.altair_chart(final_chart_st, use_container_width=True)
+                                 st.altair_chart(final_chart, use_container_width=True)
+
+                            # --- 2DA GRÁFICA: ESTADO ---
+                            st.markdown("#### ⏳ Por Estado")
+                            st.caption("Evolución mensual del estado de las gestiones.")
+                        
+                            if 'ESTADO' in df_m.columns:
+                                # Agrupar por Mes y ESTADO
+                                agg_st = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESTADO']).size().reset_index(name='Cantidad')
+                            
+                                base_st = alt.Chart(agg_st).encode(
+
+                                    x=alt.X('ESTADO', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
+                                    y=alt.Y('Cantidad', title='Cantidad'),
+                                    color=alt.Color('ESTADO', legend=alt.Legend(orient='right', title='Estado Gestión'), scale=alt.Scale(range=['#4A235A', '#6E2C00', '#145A32', '#1B4F72', '#78281F', '#4D5656'])), # Sober executive color scheme
+                                    tooltip=[
+                                        alt.Tooltip('Mes_Nombre', title='Mes'),
+                                        alt.Tooltip('ESTADO', title='Estado'),
+                                        alt.Tooltip('Cantidad', title='Cantidad')
+                                    ]
+                                )
+                            
+                                bars_st = base_st.mark_bar().encode(opacity=alt.value(0.9))
+                                text_st = base_st.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
+                                    text=alt.Text('Cantidad')
+                                )
+                            
+                                final_chart_st = (bars_st + text_st).properties(
+                                    width=alt.Step(40), 
+                                    height=300
+                                ).facet(
+                                    column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
+                                    spacing=5 
+                                ).resolve_scale(y='shared') 
+                            
+                                with st.container(height=450, border=True):
+                                     st.altair_chart(final_chart_st, use_container_width=True)
+                            else:
+                                st.warning("Columna ESTADO no encontrada en los datos filtrados.")
+
+
+
+
+                        
                         else:
-                            st.warning("Columna ESTADO no encontrada en los datos filtrados.")
+                            st.warning("Faltan columnas necesarias (FECHA o ESPECIALIDAD) para el gráfico mensual.")
 
 
-
-
-                        
-                    else:
-                        st.warning("Faltan columnas necesarias (FECHA o ESPECIALIDAD) para el gráfico mensual.")
-
-
-            else:
-                st.warning("Columna ESPECIALIDAD no encontrada")
+                else:
+                    st.warning("Columna ESPECIALIDAD no encontrada")
                 
-        if container_gestion:
-            # Solo mostrar en MODO GENERAL o POR PACIENTES
-            if view_mode in ["General", "Terapias por Paciente"]:
-                with container_gestion:
-                    st.subheader("⏳ Estado de Gestión")
-                    if col_estado_found:
-                        # Si ver_por_pacientes es True, agrupar por paciente y tomar el estado más 'avanzado' 
-                        # o simplemente mapear contornos únicos.
-                        # Para mantenerlo simple y preciso:
+            if container_gestion:
+                # Solo mostrar en MODO GENERAL o POR PACIENTES
+                if view_mode in ["General", "Terapias por Paciente"]:
+                    with container_gestion:
+                        st.subheader("⏳ Estado de Gestión")
+                        if col_estado_found:
+                            # Si ver_por_pacientes es True, agrupar por paciente y tomar el estado más 'avanzado' 
+                            # o simplemente mapear contornos únicos.
+                            # Para mantenerlo simple y preciso:
                         
-                        if ver_por_pacientes:
-                            # Contar pacientes únicos por estado
-                            col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
-                            estado_counts = df_final[df_final[col_estado_found].notna()].groupby(col_estado_found)[col_id].nunique()
+                            if ver_por_pacientes:
+                                # Contar pacientes únicos por estado
+                                col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
+                                estado_counts = df_final[df_final[col_estado_found].notna()].groupby(col_estado_found)[col_id].nunique()
                             
-                            total_graf_final = estado_counts.sum()
+                                total_graf_final = estado_counts.sum()
                             
-                            # Identificar indices por keyword
-                            idx_realizada = [i for i in estado_counts.index if i.strip().upper() in ['FINALIZADO', 'EN PROCESO']]
-                            idx_pend = [i for i in estado_counts.index if 'AGENDAMIENTO' in i.strip().upper()]
+                                # Identificar indices por keyword
+                                idx_realizada = [i for i in estado_counts.index if i.strip().upper() in ['FINALIZADO', 'EN PROCESO']]
+                                idx_pend = [i for i in estado_counts.index if 'AGENDAMIENTO' in i.strip().upper()]
                             
-                            count_gestion_realizada = estado_counts[idx_realizada].sum() if idx_realizada else 0
-                            count_pend_agendamiento = estado_counts[idx_pend].sum() if idx_pend else 0
-                            count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
+                                count_gestion_realizada = estado_counts[idx_realizada].sum() if idx_realizada else 0
+                                count_pend_agendamiento = estado_counts[idx_pend].sum() if idx_pend else 0
+                                count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
                             
+                            else:
+                                # Normalizar serie para cálculos de la gráfica original (Por Terapias)
+                                s_est = df_final[col_estado_found].astype(str).str.upper().str.strip()
+                                total_graf_final = len(df_final)
+                            
+                                # Definir grupos: FINALIZADO + EN PROCESO (Gestión Realizada) vs PENDIENTE AGENDAMIENTO
+                                count_gestion_realizada = s_est[s_est.isin(['FINALIZADO', 'EN PROCESO'])].shape[0]
+                                count_pend_agendamiento = s_est[s_est.str.contains("AGENDAMIENTO", case=False, na=False)].shape[0]
+                                count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
+                        
+                            source_gest = pd.DataFrame({
+                                "Estado": ["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
+                                "Total": [count_gestion_realizada, count_pend_agendamiento, count_otros]
+                            })
+                        
+                            source_gest["Percentage"] = (source_gest["Total"] / total_graf_final * 100).fillna(0) if total_graf_final > 0 else 0
+                            source_gest["PercentageLabel"] = source_gest["Percentage"].apply(lambda x: f"{x:.1f}%")
+                        
+                            # Gráfico Donut base
+                            base = alt.Chart(source_gest).encode(
+                                theta=alt.Theta("Total", stack=True)
+                            )
+                        
+                            pie = base.mark_arc(innerRadius=60, outerRadius=85).encode(
+                                color=alt.Color("Estado", scale=alt.Scale(domain=["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
+                                                                        range=["#4CAF50", "#FFC107", "#9E9E9E"]),
+                                                legend=None),
+                                tooltip=["Estado", "Total", alt.Tooltip("Percentage", format=".1f")]
+                            )
+                        
+                            # Texto central (Gestión Realizada %)
+                            pct_gest_val = source_gest.loc[source_gest["Estado"]=="Gestión Realizada", "Percentage"].sum()
+                            text_center = alt.Chart(pd.DataFrame({'text': [f"{pct_gest_val:.0f}%"]})).mark_text(
+                                radius=0, size=20, fontStyle="bold", color="#4CAF50"
+                            ).encode(text='text:N')
+
+                            # Etiquetas laterales
+                            text_side = base.mark_text(radius=105, size=11).encode(
+                                text=alt.Text("PercentageLabel"),
+                                order=alt.Order("Estado"),
+                                color=alt.Color("Estado", scale=alt.Scale(domain=["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
+                                                                        range=["#4CAF50", "#FF8F00", "#757575"]), legend=None)
+                            ).transform_filter(
+                                alt.datum.Estado != 'Gestión Realizada'
+                            )
+                        
+                            st.altair_chart((pie + text_center + text_side).properties(height=250), use_container_width=True)
+                        
+                            st.markdown(f"""
+                            <div style="background-color: #f9f9f9; padding: 12px; border-radius: 10px; border: 1px solid #e0e0e0; margin-top: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border: none;">
+                                    <tr style="border: none;">
+                                        <td style="width: 33%; text-align: center; border-right: 1px solid #ddd; vertical-align: middle;">
+                                            <div style="font-size: 11px; color: #4CAF50; font-weight: 600; text-transform: uppercase;">Realizadas</div>
+                                            <div style="font-size: 18px; font-weight: 700; color: #2E7D32; margin-top: 2px;">{count_gestion_realizada}</div>
+                                        </td>
+                                        <td style="width: 33%; text-align: center; border-right: 1px solid #ddd; vertical-align: middle;">
+                                            <div style="font-size: 11px; color: #FFC107; font-weight: 600; text-transform: uppercase;">Pendientes</div>
+                                            <div style="font-size: 18px; font-weight: 700; color: #FF8F00; margin-top: 2px;">{count_pend_agendamiento}</div>
+                                        </td>
+                                        <td style="width: 33%; text-align: center; vertical-align: middle;">
+                                            <div style="font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase;">Total</div>
+                                            <div style="font-size: 18px; font-weight: 700; color: #000; margin-top: 2px;">{total_graf_final}</div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                            """, unsafe_allow_html=True)
                         else:
-                            # Normalizar serie para cálculos de la gráfica original (Por Terapias)
-                            s_est = df_final[col_estado_found].astype(str).str.upper().str.strip()
-                            total_graf_final = len(df_final)
-                            
-                            # Definir grupos: FINALIZADO + EN PROCESO (Gestión Realizada) vs PENDIENTE AGENDAMIENTO
-                            count_gestion_realizada = s_est[s_est.isin(['FINALIZADO', 'EN PROCESO'])].shape[0]
-                            count_pend_agendamiento = s_est[s_est.str.contains("AGENDAMIENTO", case=False, na=False)].shape[0]
-                            count_otros = total_graf_final - count_gestion_realizada - count_pend_agendamiento
-                        
-                        source_gest = pd.DataFrame({
-                            "Estado": ["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
-                            "Total": [count_gestion_realizada, count_pend_agendamiento, count_otros]
-                        })
-                        
-                        source_gest["Percentage"] = (source_gest["Total"] / total_graf_final * 100).fillna(0) if total_graf_final > 0 else 0
-                        source_gest["PercentageLabel"] = source_gest["Percentage"].apply(lambda x: f"{x:.1f}%")
-                        
-                        # Gráfico Donut base
-                        base = alt.Chart(source_gest).encode(
-                            theta=alt.Theta("Total", stack=True)
-                        )
-                        
-                        pie = base.mark_arc(innerRadius=60, outerRadius=85).encode(
-                            color=alt.Color("Estado", scale=alt.Scale(domain=["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
-                                                                    range=["#4CAF50", "#FFC107", "#9E9E9E"]),
-                                            legend=None),
-                            tooltip=["Estado", "Total", alt.Tooltip("Percentage", format=".1f")]
-                        )
-                        
-                        # Texto central (Gestión Realizada %)
-                        pct_gest_val = source_gest.loc[source_gest["Estado"]=="Gestión Realizada", "Percentage"].sum()
-                        text_center = alt.Chart(pd.DataFrame({'text': [f"{pct_gest_val:.0f}%"]})).mark_text(
-                            radius=0, size=20, fontStyle="bold", color="#4CAF50"
-                        ).encode(text='text:N')
-
-                        # Etiquetas laterales
-                        text_side = base.mark_text(radius=105, size=11).encode(
-                            text=alt.Text("PercentageLabel"),
-                            order=alt.Order("Estado"),
-                            color=alt.Color("Estado", scale=alt.Scale(domain=["Gestión Realizada", "Pendiente Agendamiento", "Otros"],
-                                                                    range=["#4CAF50", "#FF8F00", "#757575"]), legend=None)
-                        ).transform_filter(
-                            alt.datum.Estado != 'Gestión Realizada'
-                        )
-                        
-                        st.altair_chart((pie + text_center + text_side).properties(height=250), use_container_width=True)
-                        
-                        st.markdown(f"""
-                        <div style="background-color: #f9f9f9; padding: 12px; border-radius: 10px; border: 1px solid #e0e0e0; margin-top: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border: none;">
-                                <tr style="border: none;">
-                                    <td style="width: 33%; text-align: center; border-right: 1px solid #ddd; vertical-align: middle;">
-                                        <div style="font-size: 11px; color: #4CAF50; font-weight: 600; text-transform: uppercase;">Realizadas</div>
-                                        <div style="font-size: 18px; font-weight: 700; color: #2E7D32; margin-top: 2px;">{count_gestion_realizada}</div>
-                                    </td>
-                                    <td style="width: 33%; text-align: center; border-right: 1px solid #ddd; vertical-align: middle;">
-                                        <div style="font-size: 11px; color: #FFC107; font-weight: 600; text-transform: uppercase;">Pendientes</div>
-                                        <div style="font-size: 18px; font-weight: 700; color: #FF8F00; margin-top: 2px;">{count_pend_agendamiento}</div>
-                                    </td>
-                                    <td style="width: 33%; text-align: center; vertical-align: middle;">
-                                        <div style="font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase;">Total</div>
-                                        <div style="font-size: 18px; font-weight: 700; color: #000; margin-top: 2px;">{total_graf_final}</div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.warning("Columna de Estado no disponible para gestión.")
+                            st.warning("Columna de Estado no disponible para gestión.")
 
 
-        with container_pacientes:
-            if view_mode == "General":
-                st.subheader("📋 Estado Pacientes")
-
-            if 'ESTADO' in df_final.columns:
-                
-                # --- MODO GENERAL ---
+            with container_pacientes:
                 if view_mode == "General":
-                    df_st_valid = df_final[df_final['ESTADO'].notna() & (df_final['ESTADO'] != '')]
-                    
-                    total_counts = df_st_valid['ESTADO'].value_counts().reset_index()
-                    total_counts.columns = ['Estado', 'Total Terapias']
-                    
-                    col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
-                    unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
-                    unique_counts.columns = ['Estado', 'Pacientes']
-                    
-                    # --- AGREGAR SESIONES REALIZADAS ---
-                    df_st_viz = df_st_valid.copy()
-                    
-                    col_real_viz = None
-                    for c in df_st_viz.columns:
-                        if "REALIZADAS" in str(c).upper():
-                            col_real_viz = c
-                            df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
-                            break
-                    
-                    real_counts = pd.DataFrame()
-                    if col_real_viz:
-                        real_counts = df_st_viz.groupby('ESTADO')[col_real_viz].sum().reset_index()
-                        real_counts.columns = ['Estado', 'Sesiones Realizadas']
+                    st.subheader("📋 Estado Pacientes")
 
-                    # --- AGREGAR SESIONES PROGRAMADAS ---
-                    prog_counts = pd.DataFrame()
-                    col_prog_viz = None
-                    for c in df_st_viz.columns:
-                        if "CANT" in str(c).upper():
-                            col_prog_viz = c
-                            df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
-                            break
-                    
-                    if col_prog_viz:
-                        prog_counts = df_st_viz.groupby('ESTADO')[col_prog_viz].sum().reset_index()
-                        prog_counts.columns = ['Estado', 'Sesiones Programadas']
-                    
-                    # Merge de todas las métricas
-                    final_stats = pd.merge(total_counts, unique_counts, on='Estado')
-                    if not real_counts.empty:
-                        final_stats = pd.merge(final_stats, real_counts, on='Estado')
-                    if not prog_counts.empty:
-                        final_stats = pd.merge(final_stats, prog_counts, on='Estado')
-                    
-                    var_graf_st = 'Total Terapias'
-                    titulo_graf_st = 'Total Terapias'
-                    
-                    final_stats = final_stats.sort_values(by=var_graf_st, ascending=False)
-                    
-                    tooltip_list = ['Estado', 'Total Terapias', 'Pacientes']
-                    if not prog_counts.empty:
-                        tooltip_list.append('Sesiones Programadas')
-                    if not real_counts.empty:
-                        tooltip_list.append('Sesiones Realizadas')
-
-                    base_st = alt.Chart(final_stats).encode(
-                        x=alt.X(var_graf_st, title=titulo_graf_st),
-                        y=alt.Y('Estado', sort='-x', title=''),
-                        tooltip=tooltip_list
-                    )
-                    bars_st = base_st.mark_bar(color="#FF4B4B")
-                    text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text=var_graf_st)
-                    
-                    st.altair_chart((bars_st + text_st).properties(height=350), use_container_width=True)
+                if 'ESTADO' in df_final.columns:
                 
-                # --- MODO MENSUAL O POR PACIENTES (Vacío para esta subsección) ---
-                else: 
-                     pass
+                    # --- MODO GENERAL ---
+                    if view_mode == "General":
+                        df_st_valid = df_final[df_final['ESTADO'].notna() & (df_final['ESTADO'] != '')]
+                    
+                        total_counts = df_st_valid['ESTADO'].value_counts().reset_index()
+                        total_counts.columns = ['Estado', 'Total Terapias']
+                    
+                        col_id = 'DNI' if 'DNI' in df_final.columns else 'PACIENTES'
+                        unique_counts = df_st_valid.groupby('ESTADO')[col_id].nunique().reset_index()
+                        unique_counts.columns = ['Estado', 'Pacientes']
+                    
+                        # --- AGREGAR SESIONES REALIZADAS ---
+                        df_st_viz = df_st_valid.copy()
+                    
+                        col_real_viz = None
+                        for c in df_st_viz.columns:
+                            if "REALIZADAS" in str(c).upper():
+                                col_real_viz = c
+                                df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
+                                break
+                    
+                        real_counts = pd.DataFrame()
+                        if col_real_viz:
+                            real_counts = df_st_viz.groupby('ESTADO')[col_real_viz].sum().reset_index()
+                            real_counts.columns = ['Estado', 'Sesiones Realizadas']
+
+                        # --- AGREGAR SESIONES PROGRAMADAS ---
+                        prog_counts = pd.DataFrame()
+                        col_prog_viz = None
+                        for c in df_st_viz.columns:
+                            if "CANT" in str(c).upper():
+                                col_prog_viz = c
+                                df_st_viz[c] = pd.to_numeric(df_st_viz[c], errors='coerce').fillna(0)
+                                break
+                    
+                        if col_prog_viz:
+                            prog_counts = df_st_viz.groupby('ESTADO')[col_prog_viz].sum().reset_index()
+                            prog_counts.columns = ['Estado', 'Sesiones Programadas']
+                    
+                        # Merge de todas las métricas
+                        final_stats = pd.merge(total_counts, unique_counts, on='Estado')
+                        if not real_counts.empty:
+                            final_stats = pd.merge(final_stats, real_counts, on='Estado')
+                        if not prog_counts.empty:
+                            final_stats = pd.merge(final_stats, prog_counts, on='Estado')
+                    
+                        var_graf_st = 'Total Terapias'
+                        titulo_graf_st = 'Total Terapias'
+                    
+                        final_stats = final_stats.sort_values(by=var_graf_st, ascending=False)
+                    
+                        tooltip_list = ['Estado', 'Total Terapias', 'Pacientes']
+                        if not prog_counts.empty:
+                            tooltip_list.append('Sesiones Programadas')
+                        if not real_counts.empty:
+                            tooltip_list.append('Sesiones Realizadas')
+
+                        base_st = alt.Chart(final_stats).encode(
+                            x=alt.X(var_graf_st, title=titulo_graf_st),
+                            y=alt.Y('Estado', sort='-x', title=''),
+                            tooltip=tooltip_list
+                        )
+                        bars_st = base_st.mark_bar(color="#FF4B4B")
+                        text_st = base_st.mark_text(align='left', dx=3, color='black').encode(text=var_graf_st)
+                    
+                        st.altair_chart((bars_st + text_st).properties(height=350), use_container_width=True)
+                
+                    # --- MODO MENSUAL O POR PACIENTES (Vacío para esta subsección) ---
+                    else: 
+                         pass
 
 
 
-                if view_mode == "General":
-                     missing_st = df_final[df_final['PACIENTES'].notna() & (df_final['ESTADO'].isna() | (df_final['ESTADO'] == ''))].shape[0]
-                     if missing_st > 0:
-                         st.warning(f"⚠️ {missing_st} filas con Estado vacío.")
+                    if view_mode == "General":
+                         missing_st = df_final[df_final['PACIENTES'].notna() & (df_final['ESTADO'].isna() | (df_final['ESTADO'] == ''))].shape[0]
+                         if missing_st > 0:
+                             st.warning(f"⚠️ {missing_st} filas con Estado vacío.")
 
-            else:
-                 if view_mode == "General":
-                      st.warning("Columna ESTADO no encontrada")
+                else:
+                     if view_mode == "General":
+                          st.warning("Columna ESTADO no encontrada")
         
-        st.divider()
+            st.divider()
         
-        # --- 3. GEOGRAFÍA ---
-        if view_mode == "General" and 'DISTRITO' in df_final.columns:
+            # --- 3. GEOGRAFÍA ---
+            if view_mode == "General" and 'DISTRITO' in df_final.columns:
              
-             # --- TOGGLE DISTRIBUCIÓN POR DISTRITO (Pedido Usuario) ---
-             st.subheader("🗺️ Distribución por Distritos")
+                 # --- TOGGLE DISTRIBUCIÓN POR DISTRITO (Pedido Usuario) ---
+                 st.subheader("🗺️ Distribución por Distritos")
              
-             # Opciones de visualización
-             opt_map_mode = st.radio(
-                 "Métrica de Distribución:",
-                 ["Distribución Pacientes por Distrito (Únicos)", "Visitas por Distrito (Total)"],
-                 horizontal=True,
-                 index=0 if ver_por_pacientes else 1, # Si es modo 'Por Pacientes' fuerzalo visualmente a únicos por default (o 0 que es el orginal)
-                 label_visibility="collapsed"
-             )
+                 # Opciones de visualización
+                 opt_map_mode = st.radio(
+                     "Métrica de Distribución:",
+                     ["Distribución Pacientes por Distrito (Únicos)", "Visitas por Distrito (Total)"],
+                     horizontal=True,
+                     index=0 if ver_por_pacientes else 1, # Si es modo 'Por Pacientes' fuerzalo visualmente a únicos por default (o 0 que es el orginal)
+                     label_visibility="collapsed"
+                 )
              
-             dist_chart_title = "Distribución Pacientes por Distrito"
+                 dist_chart_title = "Distribución Pacientes por Distrito"
              
-             # Usamos 'DISTRITO' (ya normalizado en df_final si existe)
-             col_dist_viz = "DISTRITO"
-             col_p_viz = "PACIENTES"
+                 # Usamos 'DISTRITO' (ya normalizado en df_final si existe)
+                 col_dist_viz = "DISTRITO"
+                 col_p_viz = "PACIENTES"
              
-             if col_dist_viz in df_final.columns:
-                 data_dist = None
+                 if col_dist_viz in df_final.columns:
+                     data_dist = None
                  
-                 # Si ver_por_pacientes global es true, forzamos vista únicos visualmente si así lo prefieres,
-                 # O usamos la seleccion del radio botón pero con un default dinámico (hecho arriba).
-                 if "Únicos" in opt_map_mode:
-                     # Modo 1: Pacientes Únicos
-                     if col_p_viz in df_final.columns:
-                        # Agrupar por distrito y contar únicos
-                        data_dist = df_final.groupby(col_dist_viz)[col_p_viz].nunique().reset_index(name='CANTIDAD')
-                        data_dist = data_dist.sort_values('CANTIDAD', ascending=False)
-                        dist_chart_title = "Distribución Pacientes por Distrito"
+                     # Si ver_por_pacientes global es true, forzamos vista únicos visualmente si así lo prefieres,
+                     # O usamos la seleccion del radio botón pero con un default dinámico (hecho arriba).
+                     if "Únicos" in opt_map_mode:
+                         # Modo 1: Pacientes Únicos
+                         if col_p_viz in df_final.columns:
+                            # Agrupar por distrito y contar únicos
+                            data_dist = df_final.groupby(col_dist_viz)[col_p_viz].nunique().reset_index(name='CANTIDAD')
+                            data_dist = data_dist.sort_values('CANTIDAD', ascending=False)
+                            dist_chart_title = "Distribución Pacientes por Distrito"
+                     else:
+                         # Modo 2: Visitas Totales (Original)
+                         data_dist = df_final[col_dist_viz].value_counts().reset_index()
+                         data_dist.columns = [col_dist_viz, 'CANTIDAD']
+                         dist_chart_title = "Distribución por Distritos (Visitas Totales)"
+
+                     if data_dist is not None and not data_dist.empty:
+                         # Restaurar estilo original (Vertical + Rojo #FF4B4B)
+                         # Eje X = Distritos, Eje Y = Cantidad
+                     
+                         col_x_name = data_dist.columns[0] # Distrito
+                     
+                         bars_dist = alt.Chart(data_dist).mark_bar(color="#FF4B4B").encode(
+                            x=alt.X(col_x_name, sort='-y', title='Distrito'),
+                            y=alt.Y('CANTIDAD', title='Total Pacientes'),
+                            tooltip=[col_x_name, 'CANTIDAD']
+                         ).properties(title=dist_chart_title)
+                     
+                         text_dist = bars_dist.mark_text(
+                            align='center',
+                            baseline='bottom',
+                            dy=-5, # Encima de la barra
+                            color='black',
+                            fontWeight='bold',
+                            fontSize=12,
+                            clip=False # Evita que desaparezcan al borde
+                         ).encode(
+                            text=alt.Text('CANTIDAD', format='d')
+                         )
+                     
+                         # Aumentamos height a 600 para que el eje sea "más alto"
+                         # Agregamos config para que no desaparezcan etiquetas al solaparse (opcional)
+                         final_dist = (bars_dist + text_dist).properties(height=600).interactive()
+                         st.altair_chart(final_dist, use_container_width=True)
+                     else:
+                         st.info("No hay datos de distrito disponibles para graficar.")
                  else:
-                     # Modo 2: Visitas Totales (Original)
-                     data_dist = df_final[col_dist_viz].value_counts().reset_index()
-                     data_dist.columns = [col_dist_viz, 'CANTIDAD']
-                     dist_chart_title = "Distribución por Distritos (Visitas Totales)"
+                     st.warning("Columna DISTRITO no encontrada para generar gráfica.")
 
-                 if data_dist is not None and not data_dist.empty:
-                     # Restaurar estilo original (Vertical + Rojo #FF4B4B)
-                     # Eje X = Distritos, Eje Y = Cantidad
-                     
-                     col_x_name = data_dist.columns[0] # Distrito
-                     
-                     bars_dist = alt.Chart(data_dist).mark_bar(color="#FF4B4B").encode(
-                        x=alt.X(col_x_name, sort='-y', title='Distrito'),
-                        y=alt.Y('CANTIDAD', title='Total Pacientes'),
-                        tooltip=[col_x_name, 'CANTIDAD']
-                     ).properties(title=dist_chart_title)
-                     
-                     text_dist = bars_dist.mark_text(
-                        align='center',
-                        baseline='bottom',
-                        dy=-5, # Encima de la barra
-                        color='black',
-                        fontWeight='bold',
-                        fontSize=12,
-                        clip=False # Evita que desaparezcan al borde
-                     ).encode(
-                        text=alt.Text('CANTIDAD', format='d')
-                     )
-                     
-                     # Aumentamos height a 600 para que el eje sea "más alto"
-                     # Agregamos config para que no desaparezcan etiquetas al solaparse (opcional)
-                     final_dist = (bars_dist + text_dist).properties(height=600).interactive()
-                     st.altair_chart(final_dist, use_container_width=True)
-                 else:
-                     st.info("No hay datos de distrito disponibles para graficar.")
-             else:
-                 st.warning("Columna DISTRITO no encontrada para generar gráfica.")
-
-    with tab_search:
-        st.header("🔍 Buscador de Pacientes")
+        with tab_search:
+            st.header("🔍 Buscador de Pacientes")
         
-        # 1. Filtro de Estado
-        st_list = ["Todos"] + sorted(df_base['ESTADO'].astype(str).unique().tolist())
-        st_filt = st.selectbox("📂 Estado:", st_list, index=0, key="fs_global_v2")
+            # 1. Filtro de Estado
+            st_list = ["Todos"] + sorted(df_base['ESTADO'].astype(str).unique().tolist())
+            st_filt = st.selectbox("📂 Estado:", st_list, index=0, key="fs_global_v2")
         
-        df_s = df_base if st_filt == "Todos" else df_base[df_base['ESTADO'].astype(str) == st_filt]
-        p_list = sorted(df_s['PACIENTES'].dropna().unique().tolist())
+            df_s = df_base if st_filt == "Todos" else df_base[df_base['ESTADO'].astype(str) == st_filt]
+            p_list = sorted(df_s['PACIENTES'].dropna().unique().tolist())
         
-        # El buscador de esta pestaña es INDEPENDIENTE de la barra lateral (por petición del usuario)
-        p_sel = st.selectbox(
-            "👤 Selecciona Paciente:", 
-            p_list, 
-            index=None, 
-            placeholder="Buscar...",
-            key=f"buscador_tab_p_{st_filt}" # Reseteamos lista si cambia el estado
-        )
+            # El buscador de esta pestaña es INDEPENDIENTE de la barra lateral (por petición del usuario)
+            p_sel = st.selectbox(
+                "👤 Selecciona Paciente:", 
+                p_list, 
+                index=None, 
+                placeholder="Buscar...",
+                key=f"buscador_tab_p_{st_filt}" # Reseteamos lista si cambia el estado
+            )
 
-        if p_sel:
-            try:
-                # Usar df_s (filtrado por estado) en lugar de df_base para que las terapias coincidan con el filtro
-                matches = df_s[df_s['PACIENTES'] == p_sel].copy()
-                labels = []
-                idx_map_s = {}
+            if p_sel:
+                try:
+                    # Usar df_s (filtrado por estado) en lugar de df_base para que las terapias coincidan con el filtro
+                    matches = df_s[df_s['PACIENTES'] == p_sel].copy()
+                    labels = []
+                    idx_map_s = {}
                 
-                for idx, r in matches.iterrows():
-                    esp = str(r.get('ESPECIALIDAD', 'S/E'))
-                    f_o = r.get('FECHA OM', 'S/F')
-                    # VALIDACIÓN ROBUSTA DE FECHAS (Previene ValueError en NaT)
-                    f_s = f_o.strftime('%d/%m/%Y') if (pd.notnull(f_o) and hasattr(f_o, 'strftime')) else str(f_o)
+                    for idx, r in matches.iterrows():
+                        esp = str(r.get('ESPECIALIDAD', 'S/E'))
+                        f_o = r.get('FECHA OM', 'S/F')
+                        # VALIDACIÓN ROBUSTA DE FECHAS (Previene ValueError en NaT)
+                        f_s = f_o.strftime('%d/%m/%Y') if (pd.notnull(f_o) and hasattr(f_o, 'strftime')) else str(f_o)
                     
-                    # Agregar Pendientes al título
-                    pend = r.get('PENDIENTES', 0)
-                    # Intentar formatear a int si es posible
-                    try: pend = int(pend)
-                    except: pass
+                        # Agregar Pendientes al título
+                        pend = r.get('PENDIENTES', 0)
+                        # Intentar formatear a int si es posible
+                        try: pend = int(pend)
+                        except: pass
                     
-                    l = f"{esp} (Inicio: {f_s}) | Pendientes: {pend}"
-                    o_l, c = l, 2
-                    while l in idx_map_s:
-                        l = f"{o_l} ({c})"; c += 1
-                    labels.append(l)
-                    idx_map_s[l] = idx
+                        l = f"{esp} (Inicio: {f_s}) | Pendientes: {pend}"
+                        o_l, c = l, 2
+                        while l in idx_map_s:
+                            l = f"{o_l} ({c})"; c += 1
+                        labels.append(l)
+                        idx_map_s[l] = idx
                 
-                # Llave dinámica para Terapia para que se resetee al cambiar de paciente
-                t_sel = st.selectbox("📋 Terapia:", labels, key=f"ts_v2_{p_sel}")
+                    # Llave dinámica para Terapia para que se resetee al cambiar de paciente
+                    t_sel = st.selectbox("📋 Terapia:", labels, key=f"ts_v2_{p_sel}")
                 
-                p_data_found = None
-                if t_sel:
-                    p_data_found = df_base.loc[idx_map_s[t_sel]]
+                    p_data_found = None
+                    if t_sel:
+                        p_data_found = df_base.loc[idx_map_s[t_sel]]
                 
-                if p_data_found is not None:
-                    st.markdown(f"### 👤 {p_data_found.get('PACIENTES', p_sel)}")
-                    st.caption(f"Detalle: {t_sel}")
-                    st.write(f"📍 **Distrito:** {p_data_found.get('DISTRITO', 'Sin Registro')}")
-                    st.write(f"🏠 **Dirección:** {p_data_found.get('DIRECCION', 'Sin Registro')}")
+                    if p_data_found is not None:
+                        st.markdown(f"### 👤 {p_data_found.get('PACIENTES', p_sel)}")
+                        st.caption(f"Detalle: {t_sel}")
+                        st.write(f"📍 **Distrito:** {p_data_found.get('DISTRITO', 'Sin Registro')}")
+                        st.write(f"🏠 **Dirección:** {p_data_found.get('DIRECCION', 'Sin Registro')}")
                     
-                    if IS_LOCAL:
-                        with st.expander("🛠️ Ver Datos Crudos"):
-                            st.json(p_data_found.to_dict())
+                        if IS_LOCAL:
+                            with st.expander("🛠️ Ver Datos Crudos"):
+                                st.json(p_data_found.to_dict())
 
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        st.info(f"**DNI:** {p_data_found.get('DNI', 'N/A')}")
-                        st.write(f"**Tel:** {p_data_found.get('TLF', 'N/A')}")
-                    with c2:
-                        st.info(f"**Programa:** {p_data_found.get('PROGRAMAS', 'N/A')}")
-                        f_v = p_data_found.get('FECHA OM', 'N/A')
-                        # VALIDACIÓN ROBUSTA PARA CAMPO INICIO
-                        st.write(f"**Inicio:** {f_v.strftime('%d/%m/%Y') if (pd.notnull(f_v) and hasattr(f_v, 'strftime')) else f_v}")
-                    with c3:
-                        e_r = str(p_data_found.get('ESTADO', 'N/A'))
-                        p_val = p_data_found.get('PENDIENTES', 0)
-                        c_val = p_data_found.get('CANT.', 0)
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            st.info(f"**DNI:** {p_data_found.get('DNI', 'N/A')}")
+                            st.write(f"**Tel:** {p_data_found.get('TLF', 'N/A')}")
+                        with c2:
+                            st.info(f"**Programa:** {p_data_found.get('PROGRAMAS', 'N/A')}")
+                            f_v = p_data_found.get('FECHA OM', 'N/A')
+                            # VALIDACIÓN ROBUSTA PARA CAMPO INICIO
+                            st.write(f"**Inicio:** {f_v.strftime('%d/%m/%Y') if (pd.notnull(f_v) and hasattr(f_v, 'strftime')) else f_v}")
+                        with c3:
+                            e_r = str(p_data_found.get('ESTADO', 'N/A'))
+                            p_val = p_data_found.get('PENDIENTES', 0)
+                            c_val = p_data_found.get('CANT.', 0)
                         
-                        # Conversión segura a int
-                        try:
-                            p_v = int(float(p_val)) if pd.notnull(p_val) else 0
-                            c_v = int(float(c_val)) if pd.notnull(c_val) else 0
-                        except:
-                            p_v, c_v = 0, 0
+                            # Conversión segura a int
+                            try:
+                                p_v = int(float(p_val)) if pd.notnull(p_val) else 0
+                                c_v = int(float(c_val)) if pd.notnull(c_val) else 0
+                            except:
+                                p_v, c_v = 0, 0
                             
-                        if e_r == "FINALIZADO" and p_v > 0:
-                            st.warning("⚠️ PENDIENTE (Saldar)")
+                            if e_r == "FINALIZADO" and p_v > 0:
+                                st.warning("⚠️ PENDIENTE (Saldar)")
+                            else:
+                                st.success(f"Estado: {e_r}")
+                        
+                            st.write(f"**Progreso:** {c_v - p_v}/{c_v}")
+                            st.caption(f"Total: {c_v} | Pendientes: {p_v}")
+                    
+                        st.divider()
+                        st.subheader("📅 Asistencias")
+                    
+                        tl = []
+                        for i in range(1, 21):
+                            cn = str(i)
+                            if cn in p_data_found:
+                                fv = p_data_found[cn]
+                                if pd.notnull(fv) and str(fv).strip() != "":
+                                    # VALIDACIÓN ROBUSTA PARA TODAS LAS SESIONES
+                                    fo = fv if hasattr(fv, 'strftime') else pd.to_datetime(fv, dayfirst=True, errors='coerce')
+                                    if pd.notnull(fo) and hasattr(fo, 'strftime'):
+                                        tl.append({"Ses": f"S{i}", "Fecha": fo, "Fmt": fo.strftime('%d/%m/%Y')})
+                    
+                        if tl:
+                            df_tl = pd.DataFrame(tl)
+                        
+                            # Reemplazamos scatter_chart por Altair explícito para controlar etiquetas en ESPAÑOL
+                            # Usamos 'labelExpr' de Vega-Lite para forzar los meses en Español sin depender del Locale del servidor
+                            spanish_months = "['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']"
+                            # Expr: "15 de Enero del 2025"
+                            axis_expr = f"date(datum.value) + ' de ' + {spanish_months}[month(datum.value)] + ' del ' + year(datum.value)"
+                        
+                            c_asist = alt.Chart(df_tl).mark_circle(size=120).encode( # Color por defecto (azul/theme)
+                                x=alt.X('Fecha', title='Fecha de Asistencia', axis=alt.Axis(labelExpr=axis_expr)),
+                                y=alt.Y('Ses', title='Sesión', sort=None), 
+                                tooltip=[
+                                    alt.Tooltip('Fecha', title='Fecha', format='%d/%m/%Y'),
+                                    alt.Tooltip('Ses', title='Sesión')
+                                ]
+                            ).properties(
+                                height=300
+                            ).interactive()
+                        
+                            st.altair_chart(c_asist, use_container_width=True)
+                            st.success(f"✅ Última sesión: {df_tl['Fecha'].max().strftime('%d/%m/%Y')}")
+                        
+                            # NUEVA TABLA DE SESIONES (Solicitada)
+                            with st.expander("📅 Ver Detalle de Fechas"):
+                                # Seleccionar y renombrar columnas para la vista
+                                df_view = df_tl[["Ses", "Fmt"]].rename(columns={"Ses": "Sesión", "Fmt": "Fecha"})
+                                st.dataframe(df_view, hide_index=True, use_container_width=True)
                         else:
-                            st.success(f"Estado: {e_r}")
-                        
-                        st.write(f"**Progreso:** {c_v - p_v}/{c_v}")
-                        st.caption(f"Total: {c_v} | Pendientes: {p_v}")
-                    
-                    st.divider()
-                    st.subheader("📅 Asistencias")
-                    
-                    tl = []
-                    for i in range(1, 21):
-                        cn = str(i)
-                        if cn in p_data_found:
-                            fv = p_data_found[cn]
-                            if pd.notnull(fv) and str(fv).strip() != "":
-                                # VALIDACIÓN ROBUSTA PARA TODAS LAS SESIONES
-                                fo = fv if hasattr(fv, 'strftime') else pd.to_datetime(fv, dayfirst=True, errors='coerce')
-                                if pd.notnull(fo) and hasattr(fo, 'strftime'):
-                                    tl.append({"Ses": f"S{i}", "Fecha": fo, "Fmt": fo.strftime('%d/%m/%Y')})
-                    
-                    if tl:
-                        df_tl = pd.DataFrame(tl)
-                        
-                        # Reemplazamos scatter_chart por Altair explícito para controlar etiquetas en ESPAÑOL
-                        # Usamos 'labelExpr' de Vega-Lite para forzar los meses en Español sin depender del Locale del servidor
-                        spanish_months = "['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']"
-                        # Expr: "15 de Enero del 2025"
-                        axis_expr = f"date(datum.value) + ' de ' + {spanish_months}[month(datum.value)] + ' del ' + year(datum.value)"
-                        
-                        c_asist = alt.Chart(df_tl).mark_circle(size=120).encode( # Color por defecto (azul/theme)
-                            x=alt.X('Fecha', title='Fecha de Asistencia', axis=alt.Axis(labelExpr=axis_expr)),
-                            y=alt.Y('Ses', title='Sesión', sort=None), 
-                            tooltip=[
-                                alt.Tooltip('Fecha', title='Fecha', format='%d/%m/%Y'),
-                                alt.Tooltip('Ses', title='Sesión')
-                            ]
-                        ).properties(
-                            height=300
-                        ).interactive()
-                        
-                        st.altair_chart(c_asist, use_container_width=True)
-                        st.success(f"✅ Última sesión: {df_tl['Fecha'].max().strftime('%d/%m/%Y')}")
-                        
-                        # NUEVA TABLA DE SESIONES (Solicitada)
-                        with st.expander("📅 Ver Detalle de Fechas"):
-                            # Seleccionar y renombrar columnas para la vista
-                            df_view = df_tl[["Ses", "Fmt"]].rename(columns={"Ses": "Sesión", "Fmt": "Fecha"})
-                            st.dataframe(df_view, hide_index=True, use_container_width=True)
-                    else:
-                        st.warning("⚠️ No hay fechas registradas o el formato es incompatible.")
-            except Exception as e:
-                st.error(f"❌ Error al cargar datos: {str(e)}")
-                st.info("💡 Se detectó información mal formateada en el Excel. Se recomienda revisar el registro del paciente.")
-        else:
-            st.info("💡 Selecciona un paciente para ver su historial completo.")
+                            st.warning("⚠️ No hay fechas registradas o el formato es incompatible.")
+                except Exception as e:
+                    st.error(f"❌ Error al cargar datos: {str(e)}")
+                    st.info("💡 Se detectó información mal formateada en el Excel. Se recomienda revisar el registro del paciente.")
+            else:
+                st.info("💡 Selecciona un paciente para ver su historial completo.")
 
-    with tab_main:
-        st.caption(f"Fuente de datos: {data_source}")
-        st.info("ℹ️ Modo Lectura: La edición está desactivada en la versión pública.")
+        with tab_main:
+            st.caption(f"Fuente de datos: {data_source}")
+            st.info("ℹ️ Modo Lectura: La edición está desactivada en la versión pública.")
         
         
-        # --- ULTIMA LIMPIEZA DE FORMATO (ID/DNI) ---
-        # Aseguramos que los IDs se vean limpios sin .0 decimal y con ceros a la izquierda si aplica
-        clean_cols = ['DNI', 'ID', 'DOCUMENTO', 'CODIGO']
-        cols_to_pad = ['DNI', 'DOCUMENTO'] # Solo estos suelen necesitar padding a 8
+            # --- ULTIMA LIMPIEZA DE FORMATO (ID/DNI) ---
+            # Aseguramos que los IDs se vean limpios sin .0 decimal y con ceros a la izquierda si aplica
+            clean_cols = ['DNI', 'ID', 'DOCUMENTO', 'CODIGO']
+            cols_to_pad = ['DNI', 'DOCUMENTO'] # Solo estos suelen necesitar padding a 8
 
-        for c in clean_cols:
-            if c in df_final.columns:
-                # 1. Transformamos a string
-                s_col = df_final[c].astype(str)
-                # 2. Reemplazamos .0 al final
-                s_col = s_col.str.replace(r'\.0+$', '', regex=True)
+            for c in clean_cols:
+                if c in df_final.columns:
+                    # 1. Transformamos a string
+                    s_col = df_final[c].astype(str)
+                    # 2. Reemplazamos .0 al final
+                    s_col = s_col.str.replace(r'\.0+$', '', regex=True)
                 
-                # 3. PADDING (Solo para DNI/Documento y si son números)
-                if c in cols_to_pad:
-                    def smart_pad(val):
-                        # Si es numérico puro y tiene menis de 8 digitos, rellenar (ej. 12345 -> 00012345)
-                        if val.isdigit() and len(val) < 8 and len(val) > 4: # >4 evita padear IDs cortos como '1'
-                            return val.zfill(8)
-                        return val
-                    s_col = s_col.map(smart_pad)
+                    # 3. PADDING (Solo para DNI/Documento y si son números)
+                    if c in cols_to_pad:
+                        def smart_pad(val):
+                            # Si es numérico puro y tiene menis de 8 digitos, rellenar (ej. 12345 -> 00012345)
+                            if val.isdigit() and len(val) < 8 and len(val) > 4: # >4 evita padear IDs cortos como '1'
+                                return val.zfill(8)
+                            return val
+                        s_col = s_col.map(smart_pad)
                 
-                df_final[c] = s_col
+                    df_final[c] = s_col
 
-        # Configuración "Ejecutiva" para las columnas clave
-        # Nota: Las columnas que no estén aquí se mostrarán por defecto (no se oculta nada)
-        executive_config = {
-            "PACIENTES": st.column_config.TextColumn("Paciente", width="medium", help="Nombre del paciente"),
-            "ID": st.column_config.TextColumn("ID", width="small"),
-            "DNI": st.column_config.TextColumn("Documento", width="small"),
-            "TLF": st.column_config.TextColumn("Teléfono", width="small"),
-            "DISTRITO": st.column_config.TextColumn("Distrito", width="small"),
-            "DIRECCION": st.column_config.TextColumn("Dirección", width="medium"),
-            "ESPECIALIDAD": st.column_config.TextColumn("Especialidad", width="medium"),
-            "PROGRAMAS": st.column_config.TextColumn("Programa", width="medium"),
-            "CANT.": st.column_config.NumberColumn("Cant.", help="Total de sesiones", format="%d"),
-            "ESTADO": st.column_config.TextColumn("Estado Actual", width="small"),
-            "CLINICA": st.column_config.TextColumn("Clínica", width="small"),
-        }
+            # Configuración "Ejecutiva" para las columnas clave
+            # Nota: Las columnas que no estén aquí se mostrarán por defecto (no se oculta nada)
+            executive_config = {
+                "PACIENTES": st.column_config.TextColumn("Paciente", width="medium", help="Nombre del paciente"),
+                "ID": st.column_config.TextColumn("ID", width="small"),
+                "DNI": st.column_config.TextColumn("Documento", width="small"),
+                "TLF": st.column_config.TextColumn("Teléfono", width="small"),
+                "DISTRITO": st.column_config.TextColumn("Distrito", width="small"),
+                "DIRECCION": st.column_config.TextColumn("Dirección", width="medium"),
+                "ESPECIALIDAD": st.column_config.TextColumn("Especialidad", width="medium"),
+                "PROGRAMAS": st.column_config.TextColumn("Programa", width="medium"),
+                "CANT.": st.column_config.NumberColumn("Cant.", help="Total de sesiones", format="%d"),
+                "ESTADO": st.column_config.TextColumn("Estado Actual", width="small"),
+                "CLINICA": st.column_config.TextColumn("Clínica", width="small"),
+            }
         
-        # --- ESTILO VISUAL (Pandas Styler) ---
-        # Función para dar color de fondo según el estado (Estilo Semáforo Ejecutivo)
-        def color_kpi_status(val):
-            if not isinstance(val, str): return ''
+            # --- ESTILO VISUAL (Pandas Styler) ---
+            # Función para dar color de fondo según el estado (Estilo Semáforo Ejecutivo)
+            def color_kpi_status(val):
+                if not isinstance(val, str): return ''
             
-            v = val.upper()
-            # Verde (Positivo/Terminado)
-            if 'TERMINMADO' in v or 'FINALIZADO' in v or 'ASISTI' in v or 'COMPLET' in v:
-                return 'background-color: #d1e7dd; color: #0f5132; font-weight: 600;' 
-            # Rojo/Rosado (Urgente/Pendiente)
-            elif 'PENDIENTE' in v or 'ESPERA' in v or 'CANCEL' in v:
-                return 'background-color: #f8d7da; color: #842029; font-weight: 600;'
-            # Azul (En Proceso)
-            elif 'PROCESO' in v or 'AGENDA' in v or 'INICIAD' in v:
-                return 'background-color: #cff4fc; color: #055160; font-weight: 600;'
+                v = val.upper()
+                # Verde (Positivo/Terminado)
+                if 'TERMINMADO' in v or 'FINALIZADO' in v or 'ASISTI' in v or 'COMPLET' in v:
+                    return 'background-color: #d1e7dd; color: #0f5132; font-weight: 600;' 
+                # Rojo/Rosado (Urgente/Pendiente)
+                elif 'PENDIENTE' in v or 'ESPERA' in v or 'CANCEL' in v:
+                    return 'background-color: #f8d7da; color: #842029; font-weight: 600;'
+                # Azul (En Proceso)
+                elif 'PROCESO' in v or 'AGENDA' in v or 'INICIAD' in v:
+                    return 'background-color: #cff4fc; color: #055160; font-weight: 600;'
             
-            return '' # Neutro
+                return '' # Neutro
 
-        # Aplicamos el estilo si existe la columna ESTADO
-        if 'ESTADO' in df_final.columns:
-            styled_df = df_final.style.map(color_kpi_status, subset=['ESTADO'])
-        else:
-            styled_df = df_final
+            # Aplicamos el estilo si existe la columna ESTADO
+            if 'ESTADO' in df_final.columns:
+                styled_df = df_final.style.map(color_kpi_status, subset=['ESTADO'])
+            else:
+                styled_df = df_final
 
-        # Tabla de solo lectura - Respetando filtros y estilos
-        st.dataframe(
-            styled_df, 
-            use_container_width=True, 
-            hide_index=True,
-            column_config=executive_config
-        )
+            # Tabla de solo lectura - Respetando filtros y estilos
+            st.dataframe(
+                styled_df, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config=executive_config
+            )
 
     
-    with tab_downloads:
-        st.header("📥 Descarga de Reporte Detallado")
-        st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
+        with tab_downloads:
+            st.header("📥 Descarga de Reporte Detallado")
+            st.info("Este reporte desglosa cada sesión en una fila individual (Formato Vertical).")
         
-        # Estado de autenticacion local para descargas
-        is_auth_down = st.session_state.get("auth_downloads", False)
-        should_auto_run = st.session_state.get("auto_gen_report", False)
+            # Estado de autenticacion local para descargas
+            is_auth_down = st.session_state.get("auth_downloads", False)
+            should_auto_run = st.session_state.get("auto_gen_report", False)
         
-        # --- Lógica de Autenticación con Popover (Más estable) ---
-        if not is_auth_down:
-            # Popover actúa como un botón que despliega un mini-modal flotante
-            with st.popover("� Generar Reporte Detallado"):
-                st.write("🔒 **Seguridad**")
-                st.caption("Ingresa la clave de administrador (12345)")
+            # --- Lógica de Autenticación con Popover (Más estable) ---
+            if not is_auth_down:
+                # Popover actúa como un botón que despliega un mini-modal flotante
+                with st.popover("� Generar Reporte Detallado"):
+                    st.write("🔒 **Seguridad**")
+                    st.caption("Ingresa la clave de administrador (12345)")
                 
-                pwd_pop = st.text_input("Contraseña:", type="password", key="pwd_popover")
+                    pwd_pop = st.text_input("Contraseña:", type="password", key="pwd_popover")
                 
-                if st.button("Desbloquear", key="btn_pop_unlock"):
-                    if pwd_pop == "12345":
-                        st.session_state["auth_downloads"] = True
-                        st.session_state["auto_gen_report"] = True
-                        st.rerun()
-                    else:
-                        st.error("❌ Contraseña incorrecta")
+                    if st.button("Desbloquear", key="btn_pop_unlock"):
+                        if pwd_pop == "12345":
+                            st.session_state["auth_downloads"] = True
+                            st.session_state["auto_gen_report"] = True
+                            st.rerun()
+                        else:
+                            st.error("❌ Contraseña incorrecta")
         
-        else:
-            # Si YA está autenticado, mostramos mensaje y lógica
-            st.success("🔓 Acceso concedido")
+            else:
+                # Si YA está autenticado, mostramos mensaje y lógica
+                st.success("🔓 Acceso concedido")
             
-            # Lógica de "Explosión" (Unpivot/Melt inteligente)
-            if should_auto_run or st.button("🚀 (Re) Generar Reporte Detallado", key="btn_gen_real"):
-                with st.spinner("Procesando todas las sesiones..."):
-                    exploded_data = []
+                # Lógica de "Explosión" (Unpivot/Melt inteligente)
+                if should_auto_run or st.button("🚀 (Re) Generar Reporte Detallado", key="btn_gen_real"):
+                    with st.spinner("Procesando todas las sesiones..."):
+                        exploded_data = []
                     
-                    # Iterar por cada orden de terapia (Respetando filtros)
-                    for idx, row in df_final.iterrows():
-                        # Datos base del paciente
-                        base_info = {
-                            "PACIENTE": row.get('PACIENTES', ''),
-                            "DNI": row.get('DNI', ''),
-                            "TELEFONO": row.get('TLF', ''),
-                            "DISTRITO": row.get('DISTRITO', ''),
-                            "DIRECCION": row.get('DIRECCION', ''), 
-                            "ESPECIALIDAD": row.get('ESPECIALIDAD', ''),
-                            "PROGRAMA": row.get('PROGRAMAS', ''),
-                            "TOTAL_ORDEN": row.get('CANT.', 0),
-                            "ESTADO_ORDEN": row.get('ESTADO', '')
-                        }
+                        # Iterar por cada orden de terapia (Respetando filtros)
+                        for idx, row in df_final.iterrows():
+                            # Datos base del paciente
+                            base_info = {
+                                "PACIENTE": row.get('PACIENTES', ''),
+                                "DNI": row.get('DNI', ''),
+                                "TELEFONO": row.get('TLF', ''),
+                                "DISTRITO": row.get('DISTRITO', ''),
+                                "DIRECCION": row.get('DIRECCION', ''), 
+                                "ESPECIALIDAD": row.get('ESPECIALIDAD', ''),
+                                "PROGRAMA": row.get('PROGRAMAS', ''),
+                                "TOTAL_ORDEN": row.get('CANT.', 0),
+                                "ESTADO_ORDEN": row.get('ESTADO', '')
+                            }
                         
-                        # Cuántas sesiones deberia tener
-                        try:
-                            cant_sesiones = int(row.get('CANT.', 0))
-                        except:
-                            cant_sesiones = 0
+                            # Cuántas sesiones deberia tener
+                            try:
+                                cant_sesiones = int(row.get('CANT.', 0))
+                            except:
+                                cant_sesiones = 0
                             
-                        # Generar una fila por cada sesión teórica (1 hasta Cantidad)
-                            col_name = str(i)
-                            fecha_val = row.get(col_name, None)
+                            # Generar una fila por cada sesión teórica (1 hasta Cantidad)
+                                col_name = str(i)
+                                fecha_val = row.get(col_name, None)
                             
-                            # Procesar fecha
-                            fecha_str = ""
-                            estado_sesion = "PENDIENTE"
+                                # Procesar fecha
+                                fecha_str = ""
+                                estado_sesion = "PENDIENTE"
                             
-                            if pd.notna(fecha_val):
-                                if isinstance(fecha_val, datetime.datetime):
-                                    fecha_str = fecha_val.strftime('%d/%m/%Y')
-                                    estado_sesion = "ASISTIÓ"
-                                elif isinstance(fecha_val, str):
-                                    # Intento de parseo rápido
-                                    if len(fecha_val) > 4: 
-                                        fecha_str = fecha_val
-                                        estado_sesion = "ASISTIÓ (Texto)"
+                                if pd.notna(fecha_val):
+                                    if isinstance(fecha_val, datetime.datetime):
+                                        fecha_str = fecha_val.strftime('%d/%m/%Y')
+                                        estado_sesion = "ASISTIÓ"
+                                    elif isinstance(fecha_val, str):
+                                        # Intento de parseo rápido
+                                        if len(fecha_val) > 4: 
+                                            fecha_str = fecha_val
+                                            estado_sesion = "ASISTIÓ (Texto)"
                             
-                            info['FECHA_SESION'] = fecha_str
-                            info['ESTADO_SESION'] = estado_sesion
+                                info['FECHA_SESION'] = fecha_str
+                                info['ESTADO_SESION'] = estado_sesion
                             
-                            exploded_data.append(info)
+                                exploded_data.append(info)
                     
 
-                    # Crear DataFrame final
-                    if exploded_data:
-                        df_export = pd.DataFrame(exploded_data)
+                        # Crear DataFrame final
+                        if exploded_data:
+                            df_export = pd.DataFrame(exploded_data)
                         
-                        # Convertir a Excel en memoria
-                        buffer = io.BytesIO()
-                        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                            df_export.to_excel(writer, index=False, sheet_name='Detalle_Sesiones')
+                            # Convertir a Excel en memoria
+                            buffer = io.BytesIO()
+                            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                                df_export.to_excel(writer, index=False, sheet_name='Detalle_Sesiones')
                             
-                            # Auto-ajustar columnas (opcional, básico)
-                            worksheet = writer.sheets['Detalle_Sesiones']
-                            worksheet.set_column('A:A', 30) # Paciente
-                            worksheet.set_column('B:I', 15) # Otros (Ajustado rango para incluír Dirección)
+                                # Auto-ajustar columnas (opcional, básico)
+                                worksheet = writer.sheets['Detalle_Sesiones']
+                                worksheet.set_column('A:A', 30) # Paciente
+                                worksheet.set_column('B:I', 15) # Otros (Ajustado rango para incluír Dirección)
                         
-                        st.success(f"✅ Reporte generado: {len(df_export)} filas individuales. (Sesión Autenticada)")
+                            st.success(f"✅ Reporte generado: {len(df_export)} filas individuales. (Sesión Autenticada)")
                         
-                        # Botón de descarga real
-                        st.download_button(
-                            label="💾 DESCARGAR EXCEL (VERTICAL)",
-                            data=buffer.getvalue(),
-                            file_name="reporte_sesiones_vertical.xlsx",
-                            mime="application/vnd.ms-excel"
-                        )
-                    else:
-                        st.warning("No se encontraron datos para exportar.")
-    if tab_map:
-        with tab_map:
-             # Pasamos df_final que ya tiene los filtros aplicados (Fechas/Pacientes)
-             mapas.render_heatmap(df_final)
+                            # Botón de descarga real
+                            st.download_button(
+                                label="💾 DESCARGAR EXCEL (VERTICAL)",
+                                data=buffer.getvalue(),
+                                file_name="reporte_sesiones_vertical.xlsx",
+                                mime="application/vnd.ms-excel"
+                            )
+                        else:
+                            st.warning("No se encontraron datos para exportar.")
+        if tab_map:
+            with tab_map:
+                 # Pasamos df_final que ya tiene los filtros aplicados (Fechas/Pacientes)
+                 mapas.render_heatmap(df_final)
 
 else:
     st.error(f"⚠️ No se pudieron cargar datos.")
