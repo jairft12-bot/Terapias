@@ -1347,7 +1347,7 @@ if df is not None:
                         if col_j and col_j in df_pacientes_unicos.columns and col_j not in rename_cols:
                             rename_cols[col_j] = "FECHA ORDEN"
                         if col_aj and col_aj in df_pacientes_unicos.columns and col_aj not in rename_cols:
-                            rename_cols[col_aj] = str(col_aj).title()
+                            rename_cols[col_aj] = "OBSERVACIÓN"
                             
                         if col_c: rename_cols[col_c] = "Total Ordenadas"
                         if col_p: rename_cols[col_p] = "Saldo Pendiente"
