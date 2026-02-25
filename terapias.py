@@ -1093,36 +1093,22 @@ if df is not None:
                 </div>
             </div>
             '''
-            
-        # Generar subtexto inferior gris
-        def gray_kpi_caption(icon, text):
-            return f'''
-            <div style="display: flex; justify-content: center;">
-                <div style="color: #666; font-size: 0.75rem; font-weight: 400; display: flex; align-items: center; gap: 4px;">
-                    {icon} <span>{text}</span>
-                </div>
-            </div>
-            '''
 
         with kpi1:
             st.button(f"Pacientes Totales\n{int(total_pacientes)}", key="btn_pacientes", on_click=set_kpi, args=("pacientes",), use_container_width=True)
             st.markdown(green_kpi_caption("↑👤", "Pacientes"), unsafe_allow_html=True)
-            st.markdown(gray_kpi_caption("📌", f"{int(total_pacientes)} pacientes en 2026"), unsafe_allow_html=True)
             
         with kpi2:
             st.button(f"Ordenes\n{int(total_terapias)}", key="btn_ordenes", on_click=set_kpi, args=("ordenes",), use_container_width=True)
             st.markdown(green_kpi_caption("↑🛠️", "Terapias Ordenadas"), unsafe_allow_html=True)
-            st.markdown(gray_kpi_caption("📌", f"{int(total_terapias)} solicitudes en 2026"), unsafe_allow_html=True)
 
         with kpi3:
             st.button(f"Total Programado\n{int(tot_prog)}", key="btn_prog", on_click=set_kpi, args=("programado",), use_container_width=True)
             st.markdown(green_kpi_caption("↑📅", "Sesiones Totales"), unsafe_allow_html=True)
-            st.markdown(gray_kpi_caption("📌", f"{int(tot_prog)} sesiones"), unsafe_allow_html=True)
 
         with kpi4:
             st.button(f"Sesiones Ejecutadas\n{tasa_ejec:.1f}%", key="btn_ejec", on_click=set_kpi, args=("ejecutadas",), use_container_width=True)
             st.markdown(green_kpi_caption("↑✅", f"{int(tot_ejec)} Ejecutadas"), unsafe_allow_html=True)
-            st.markdown(gray_kpi_caption("📌", f"{int(tot_ejec)} realizadas"), unsafe_allow_html=True)
 
         with kpi5:
             st.button(f"Sesiones Pendientes\n{tasa_pend:.1f}%", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True)
@@ -1134,7 +1120,6 @@ if df is not None:
                 </div>
             </div>
             ''', unsafe_allow_html=True)
-            st.markdown(gray_kpi_caption("📌", f"{int(tot_pend)} por realizar"), unsafe_allow_html=True)
 
 
         st.divider()
