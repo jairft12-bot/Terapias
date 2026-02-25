@@ -1042,44 +1042,47 @@ if df is not None:
         div[data-testid="stButton"] > button {
             width: 100%;
             height: 100%;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            padding: 15px 10px;
+            border: none;
+            border-radius: 0;
+            background-color: transparent;
+            box-shadow: none;
+            padding: 0;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            transition: all 0.2s ease-in-out;
+            align-items: flex-start;
+            justify-content: flex-start;
+            text-align: left;
+            transition: opacity 0.2s ease-in-out;
         }
         
         div[data-testid="stButton"] > button:hover {
-            border-color: #ff4b4b;
-            box-shadow: 0 4px 8px rgba(255,75,75,0.15);
-            transform: translateY(-2px);
+            border: none;
+            box-shadow: none;
+            background-color: transparent;
+            opacity: 0.6;
         }
         
         div[data-testid="stButton"] > button:active {
-            background-color: #f8f9fa;
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
         }
 
         /* Estilo base del parrafo (Aplica al VALOR GIGANTE que está en la segunda línea) */
         div[data-testid="stButton"] > button p {
-            font-size: 2rem !important;
-            font-weight: 600 !important;
+            font-size: 2.25rem !important;
+            font-weight: 500 !important;
             color: #111 !important;
             margin: 0;
-            line-height: 1.4;
+            line-height: 1.2;
         }
 
         /* Pseudo-elemento para la PRIMERA LÍNEA (Aplica al TÍTULO del KPI) */
         div[data-testid="stButton"] > button p::first-line {
-            font-size: 0.85rem !important;
-            font-weight: 500 !important;
+            font-size: 0.875rem !important;
+            font-weight: 400 !important;
             color: #555 !important;
-            line-height: 1;
+            line-height: 1.5;
         }
         </style>
         """, unsafe_allow_html=True)
