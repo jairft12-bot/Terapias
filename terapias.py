@@ -1420,7 +1420,7 @@ if df is not None:
                         base = alt.Chart(agg_m).encode(
                             x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
                             y=alt.Y('Cantidad', title='Cantidad'),
-                            color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(scheme='category20c')), 
+                            color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(range=['#2C3E50', '#7F8C8D', '#34495E', '#95A5A6', '#1A5276', '#5D6D7E'])), 
                             tooltip=[
                                 alt.Tooltip('Mes_Nombre', title='Mes'),
                                 alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
@@ -1456,7 +1456,7 @@ if df is not None:
 
                                 x=alt.X('ESTADO', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
                                 y=alt.Y('Cantidad', title='Cantidad'),
-                                color=alt.Color('ESTADO', legend=alt.Legend(orient='right', title='Estado Gestión'), scale=alt.Scale(scheme='category20b')), # Sober executive color scheme
+                                color=alt.Color('ESTADO', legend=alt.Legend(orient='right', title='Estado Gestión'), scale=alt.Scale(range=['#4A235A', '#6E2C00', '#145A32', '#1B4F72', '#78281F', '#4D5656'])), # Sober executive color scheme
                                 tooltip=[
                                     alt.Tooltip('Mes_Nombre', title='Mes'),
                                     alt.Tooltip('ESTADO', title='Estado'),
