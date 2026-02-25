@@ -1308,8 +1308,9 @@ if df is not None:
                         col_e = df_list.columns[4] if len(df_list.columns) > 4 else None
                         col_h = df_list.columns[7] if len(df_list.columns) > 7 else None
                         col_i = df_list.columns[8] if len(df_list.columns) > 8 else None
+                        col_aj = df_list.columns[35] if len(df_list.columns) > 35 else None
                         
-                        for extra_col in [col_d, col_e, col_h, col_i]:
+                        for extra_col in [col_d, col_e, col_h, col_i, col_aj]:
                             if extra_col and extra_col not in cols_grouped and extra_col not in aggs_lista:
                                 if extra_col != col_c and extra_col != col_p:
                                     if pd.api.types.is_numeric_dtype(df_list[extra_col]):
@@ -1342,6 +1343,8 @@ if df is not None:
                             rename_cols[col_h] = "DISTRITO"
                         if col_i and col_i in df_pacientes_unicos.columns and col_i not in rename_cols:
                             rename_cols[col_i] = "PROGRAMAS"
+                        if col_aj and col_aj in df_pacientes_unicos.columns and col_aj not in rename_cols:
+                            rename_cols[col_aj] = str(col_aj).title()
                             
                         if col_c: rename_cols[col_c] = "Total Ordenadas"
                         if col_p: rename_cols[col_p] = "Saldo Pendiente"
