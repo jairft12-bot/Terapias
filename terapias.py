@@ -1420,7 +1420,7 @@ if df is not None:
                         base = alt.Chart(agg_m).encode(
                             x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
                             y=alt.Y('Cantidad', title='Cantidad'),
-                            color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(scheme='tableau10')), 
+                            color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(scheme='category20c')), 
                             tooltip=[
                                 alt.Tooltip('Mes_Nombre', title='Mes'),
                                 alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
@@ -1456,7 +1456,7 @@ if df is not None:
 
                                 x=alt.X('ESTADO', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
                                 y=alt.Y('Cantidad', title='Cantidad'),
-                                color=alt.Color('ESTADO', legend=alt.Legend(orient='right', title='Estado Gestión'), scale=alt.Scale(scheme='set2')), # Different color scheme
+                                color=alt.Color('ESTADO', legend=alt.Legend(orient='right', title='Estado Gestión'), scale=alt.Scale(scheme='category20b')), # Sober executive color scheme
                                 tooltip=[
                                     alt.Tooltip('Mes_Nombre', title='Mes'),
                                     alt.Tooltip('ESTADO', title='Estado'),
