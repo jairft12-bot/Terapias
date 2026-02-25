@@ -1104,6 +1104,12 @@ if df is not None:
             col_estado_kpi = 'ESTADO' if 'ESTADO' in df_kpi.columns else None
             col_nombre_pac_kpi = 'PACIENTES' if 'PACIENTES' in df_kpi.columns else None
             
+            # Convertir el DNI a string para forzar que st.dataframe lo alinee a la izquierda y elimine las comas
+            if col_dni_kpi in df_kpi.columns:
+                df_kpi[col_dni_kpi] = df_kpi[col_dni_kpi].astype(str).str.replace(r'\.0$', '', regex=True)
+                # También quitamos cualquier "nan" en caso hubiera nulos
+                df_kpi[col_dni_kpi] = df_kpi[col_dni_kpi].replace('nan', '')
+            
             if st.session_state.active_kpi == "pacientes":
                 st.markdown("**Lista Unica de Pacientes Totales**")
                 cols_pac = [col_dni_kpi]
