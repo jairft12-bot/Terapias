@@ -1040,14 +1040,13 @@ if df is not None:
         <style>
         /* Contenedor del boton para diseño Moderno Tipo Tarjeta KPI */
         div[data-testid="stButton"] > button {
-            width: 80% !important;
-            margin: 0 auto;
-            height: auto;
+            width: 100%;
+            height: 100%;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             background-color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            padding: 10px 5px;
+            padding: 15px 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -1068,7 +1067,7 @@ if df is not None:
 
         /* Estilo base del parrafo (Aplica al VALOR GIGANTE que está en la segunda línea) */
         div[data-testid="stButton"] > button p {
-            font-size: 2.8rem !important;
+            font-size: 2.2rem !important;
             font-weight: 700 !important;
             color: #111 !important;
             margin: 0;
@@ -1078,7 +1077,7 @@ if df is not None:
 
         /* Pseudo-elemento para la PRIMERA LÍNEA (Aplica al TÍTULO del KPI) */
         div[data-testid="stButton"] > button p::first-line {
-            font-size: 1.2rem !important;
+            font-size: 1rem !important;
             font-weight: 500 !important;
             color: #444 !important;
             line-height: 1.2;
