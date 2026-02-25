@@ -1067,7 +1067,7 @@ if df is not None:
 
         /* Estilo base del parrafo (Aplica al VALOR GIGANTE que está en la segunda línea) */
         div[data-testid="stButton"] > button p {
-            font-size: 2.2rem !important;
+            font-size: 2rem !important;
             font-weight: 700 !important;
             color: #111 !important;
             margin: 0;
@@ -1077,7 +1077,7 @@ if df is not None:
 
         /* Pseudo-elemento para la PRIMERA LÍNEA (Aplica al TÍTULO del KPI) */
         div[data-testid="stButton"] > button p::first-line {
-            font-size: 1rem !important;
+            font-size: 0.95rem !important;
             font-weight: 500 !important;
             color: #444 !important;
             line-height: 1.2;
