@@ -1067,19 +1067,19 @@ if df is not None:
 
         /* Estilo base del parrafo (Aplica al VALOR GIGANTE que está en la segunda línea) */
         div[data-testid="stButton"] > button p {
-            font-size: 2rem !important;
-            font-weight: 600 !important;
+            font-size: 2.8rem !important;
+            font-weight: 700 !important;
             color: #111 !important;
             margin: 0;
-            line-height: 1.4;
+            line-height: 1.3;
         }
 
         /* Pseudo-elemento para la PRIMERA LÍNEA (Aplica al TÍTULO del KPI) */
         div[data-testid="stButton"] > button p::first-line {
-            font-size: 0.85rem !important;
+            font-size: 1.2rem !important;
             font-weight: 500 !important;
-            color: #555 !important;
-            line-height: 1;
+            color: #444 !important;
+            line-height: 1.2;
         }
         </style>
         """, unsafe_allow_html=True)
