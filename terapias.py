@@ -1155,7 +1155,7 @@ if df is not None:
             st.markdown('''
             <div style="display: flex; justify-content: center; margin-top: -5px; margin-bottom: 10px;">
                 <div style="background-color: rgba(255, 152, 0, 0.1); color: #e65100; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
-                    ↑🗓️ <span>''' + f"{int(pend_agendamiento)} de Agendamiento" + '''</span>
+                    ↑🗓️ <span>''' + f"{int(pend_agendamiento)} Pendiente de Agendamiento" + '''</span>
                 </div>
             </div>
             ''', unsafe_allow_html=True)
