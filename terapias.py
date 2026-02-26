@@ -1168,10 +1168,6 @@ if df is not None:
             # ---------------------------------------------------------
             # VISTA DE DETALLE DEL KPI (TABLAS)
             # ---------------------------------------------------------
-            col_back, _ = st.columns([1, 4])
-            with col_back:
-                st.button("🔙 Volver a Gráficos", on_click=set_kpi, args=(st.session_state.active_kpi,), use_container_width=True, type="primary")
-            
             st.subheader(f"📊 Detalle de Datos: {str(st.session_state.active_kpi).upper()}")
             
             # Preparar un dataframe general para mostrar
