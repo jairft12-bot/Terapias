@@ -1136,12 +1136,12 @@ if df is not None:
             st.markdown(green_kpi_caption("↑✅", f"{int(tot_ejec)} Ejecutadas"), unsafe_allow_html=True)
 
         with kpi5:
-            st.button(f"Sesiones Pendientes en Proceso\n{int(pend_proceso)}", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True)
+            st.button(f"Sesiones Pend. en Proceso\n{tasa_pend_proceso:.1f}%", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True)
             # Rojo/Naranja alerta ligera con el detalle extra solicitado
             st.markdown('''
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: -5px; margin-bottom: 10px; gap: 4px;">
                 <div style="background-color: rgba(255, 43, 43, 0.1); color: #d60000; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
-                    ↑⏳ <span>''' + f"{int(tot_pend_total)} Pendientes" + '''</span>
+                    ↑⏳ <span>''' + f"{int(pend_proceso)} Pendientes" + '''</span>
                 </div>
                 <div style="color: #666; font-size: 0.75rem; font-weight: 500;">(finalizado son ''' + f"{int(pend_finalizado)}" + ''')</div>
             </div>
@@ -1149,7 +1149,7 @@ if df is not None:
             
         with kpi6:
             # Nuevo boton 6 para pendientes de agendamiento
-            st.button(f"Sesiones Pendientes de Agendamiento\n{int(pend_agendamiento)}", key="btn_pend_agend", on_click=set_kpi, args=("pendientes_agendamiento",), use_container_width=True)
+            st.button(f"Sesiones Pend. Agendados\n{tasa_pend_agendamiento:.1f}%", key="btn_pend_agend", on_click=set_kpi, args=("pendientes_agendamiento",), use_container_width=True)
             st.markdown('''
             <div style="display: flex; justify-content: center; margin-top: -5px; margin-bottom: 10px;">
                 <div style="background-color: rgba(255, 152, 0, 0.1); color: #e65100; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
