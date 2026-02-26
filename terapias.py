@@ -1058,6 +1058,8 @@ if df is not None:
             pend_proceso = tot_pend_total # Fallback
             
         tasa_ejec = (tot_ejec / tot_prog * 100) if tot_prog > 0 else 0
+        tasa_pend_proceso = (pend_proceso / tot_prog * 100) if tot_prog > 0 else 0
+        tasa_pend_agendamiento = (pend_agendamiento / tot_prog * 100) if tot_prog > 0 else 0
 
         # Bloque CSS personalizado para estilizar st.button nativamente como kpi
         st.markdown("""
