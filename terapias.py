@@ -1557,16 +1557,12 @@ if df is not None:
                 
                     # --- MODO POR MES (Gráfico Solicitado) ---
                     else: 
-                        # 1. Preparar datos (SIN FILTRO DE FECHA - "All History")
-                        # El usuario quiere ver la evolución completa (incluyendo futuros como Ene 2026),
-                        # independientemente del filtro de año seleccionado en el sidebar.
-                    
-                        df_history = df.copy()
-                    
-                        # Aplicar SOLO filtro de Paciente si está activo
-                        if filt_patient != "Todos":
-                             if 'PACIENTES' in df_history.columns:
-                                 df_history = df_history[df_history['PACIENTES'].astype(str).str.strip().str.upper() == filt_patient]
+                        # 1. Preparar datos (CON FILTRO DE SIDEBAR APLICADO según usuario)
+                        # El usuario solicita explícitamente que las gráficas de Especialidad y Estado muestren la data
+                        # filtrada por fecha/año seleccionada en el sidebar (Ej. 2026).
+                        
+                        # Usamos df_final (que ya viene pre-filtrado por mes, año y paciente desde arriba)
+                        df_history = df_final.copy()
 
                         if 'FECHA_CLAVE' in df_history.columns and 'ESPECIALIDAD' in df_history.columns:
                             df_m = df_history[df_history['ESPECIALIDAD'].notna() & (df_history['ESPECIALIDAD'] != '') & df_history['FECHA_CLAVE'].notna()].copy()
