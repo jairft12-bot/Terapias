@@ -1151,7 +1151,7 @@ if df is not None:
             
         with kpi6:
             # Nuevo boton 6 para pendientes de agendamiento
-            st.button(f"Sesiones Pend. Agendados\n{tasa_pend_agendamiento:.1f}%", key="btn_pend_agend", on_click=set_kpi, args=("pendientes_agendamiento",), use_container_width=True)
+            st.button(f"Sesiones Pend. Agendar\n{tasa_pend_agendamiento:.1f}%", key="btn_pend_agend", on_click=set_kpi, args=("pendientes_agendamiento",), use_container_width=True)
             st.markdown('''
             <div style="display: flex; justify-content: center; margin-top: -5px; margin-bottom: 10px;">
                 <div style="background-color: rgba(255, 152, 0, 0.1); color: #e65100; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
@@ -1230,7 +1230,7 @@ if df is not None:
                     st.info("No hay columnas suficientes para agrupar las terapias.")
                 
             elif st.session_state.active_kpi == "pendientes":
-                st.markdown("**Resumen de Sesiones Pendientes por Terapia**")
+                st.markdown("**Resumen de Sesiones Pendientes en Proceso por Terapia**")
                 if col_terapia_kpi and col_p_kpi:
                     df_kpi['_temp_p'] = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0)
                     
@@ -1247,9 +1247,33 @@ if df is not None:
                         df_show = df_kpi.groupby(col_terapia_kpi)['_temp_p'].sum().reset_index()
                         df_show.rename(columns={'_temp_p': 'Total Pendientes'}, inplace=True)
                         
+                    if not df_show.empty:
+                        df_total = df_show.sum(numeric_only=True).to_frame().T
+                        df_total[col_terapia_kpi] = 'TOTAL'
+                        df_show = pd.concat([df_show, df_total], ignore_index=True)
+                        
                     st.dataframe(df_show, use_container_width=True, hide_index=True)
                 else:
                     st.info("No hay columnas suficientes para agrupar las terapias.")
+
+            elif st.session_state.active_kpi == "pendientes_agendamiento":
+                st.markdown("**Resumen de Sesiones Pendientes de Agendamiento por Terapia**")
+                if col_terapia_kpi and col_p_kpi and col_estado_kpi:
+                    df_kpi['_temp_p'] = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0)
+                    es_pend_agend = df_kpi[col_estado_kpi].astype(str).str.strip().str.upper() == "PENDIENTE AGENDAMIENTO"
+                    df_agend = df_kpi[es_pend_agend]
+                    
+                    df_show = df_agend.groupby(col_terapia_kpi)['_temp_p'].sum().reset_index()
+                    df_show.rename(columns={'_temp_p': 'Total Pendientes'}, inplace=True)
+                    
+                    if not df_show.empty:
+                        df_total = df_show.sum(numeric_only=True).to_frame().T
+                        df_total[col_terapia_kpi] = 'TOTAL'
+                        df_show = pd.concat([df_show, df_total], ignore_index=True)
+                        
+                    st.dataframe(df_show, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No hay columnas suficientes para mostrar el detalle.")
 
         else:
             # ---------------------------------------------------------
