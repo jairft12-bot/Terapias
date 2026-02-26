@@ -1235,13 +1235,13 @@ if df is not None:
                     df_kpi['_temp_p'] = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0)
                     
                     if col_estado_kpi:
-                        # Identificamos cuáles son pendientes de agendamiento y cuáles son "otras" (Agendadas)
-                        es_pend_agend = df_kpi[col_estado_kpi].astype(str).str.strip().str.upper() == "PENDIENTE AGENDAMIENTO"
+                        # Identificamos cuáles son en proceso y cuáles son finalizados
+                        est = df_kpi[col_estado_kpi].astype(str).str.strip().str.upper()
                         
-                        df_kpi['Pendiente Agendamiento'] = np.where(es_pend_agend, df_kpi['_temp_p'], 0)
-                        df_kpi['Agendadas'] = np.where(~es_pend_agend, df_kpi['_temp_p'], 0)
+                        df_kpi['EN PROCESO'] = np.where(est == "EN PROCESO", df_kpi['_temp_p'], 0)
+                        df_kpi['FINALIZADO'] = np.where(est == "FINALIZADO", df_kpi['_temp_p'], 0)
                         
-                        df_show = df_kpi.groupby(col_terapia_kpi)[['Pendiente Agendamiento', 'Agendadas', '_temp_p']].sum().reset_index()
+                        df_show = df_kpi.groupby(col_terapia_kpi)[['EN PROCESO', 'FINALIZADO', '_temp_p']].sum().reset_index()
                         df_show.rename(columns={'_temp_p': 'Total Pendientes'}, inplace=True)
                     else:
                         df_show = df_kpi.groupby(col_terapia_kpi)['_temp_p'].sum().reset_index()
