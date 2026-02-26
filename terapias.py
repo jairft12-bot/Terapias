@@ -1000,16 +1000,10 @@ if df is not None:
             kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
             
         # Determinar qué dataframe usar para los KPIs según el Modo de Visualización y Filtros
+        # El usuario ha solicitado que los KPIs SIEMPRE respeten los filtros del sidebar (df_final)
+        # sin importar el modo de visualización seleccionado.
         view_mode_state = st.session_state.get('view_mode_selector', 'General')
-        
-        if view_mode_state == "Por Mes":
-            df_kpi = df.copy()
-            # En "Por Mes", se ignora filtro de mes/año (All History) pero se aplica paciente si existe:
-            if filt_patient != "Todos" and 'PACIENTES' in df_kpi.columns:
-                 df_kpi = df_kpi[df_kpi['PACIENTES'].astype(str).str.strip().str.upper() == filt_patient]
-        else:
-            # En "General" o "Terapias por Paciente", df_final ya tiene todos los filtros (Mes, Año, Paciente)
-            df_kpi = df_final.copy()
+        df_kpi = df_final.copy()
             
         # --- CÁLCULOS PARA KPIs DINÁMICOS ---
         col_dni_kpi = 'DNI' if 'DNI' in df_kpi.columns else 'PACIENTES'
