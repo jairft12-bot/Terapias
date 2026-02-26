@@ -997,7 +997,7 @@ if df is not None:
         kpi_holder = st.empty()
         
         with kpi_holder.container():
-            kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+            kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
             
         # Determinar qué dataframe usar para los KPIs según el Modo de Visualización y Filtros
         view_mode_state = st.session_state.get('view_mode_selector', 'General')
@@ -1024,16 +1024,40 @@ if df is not None:
         col_c_kpi = next((c for c in df_kpi.columns if "CANT" in str(c).upper()), None)
         col_p_kpi = next((c for c in df_kpi.columns if "PENDIENTES" in str(c).upper()), None)
         col_r_kpi = next((c for c in df_kpi.columns if "REALIZADAS" in str(c).upper() or "EJECUTADAS" in str(c).upper()), None)
+        col_est_kpi = 'ESTADO' if 'ESTADO' in df_kpi.columns else None
 
         tot_prog = pd.to_numeric(df_kpi[col_c_kpi], errors='coerce').fillna(0).sum() if col_c_kpi else 0
-        tot_pend = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0).sum() if col_p_kpi else 0
+        tot_pend_total = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0).sum() if col_p_kpi else 0
+        
         if col_r_kpi:
             tot_ejec = pd.to_numeric(df_kpi[col_r_kpi], errors='coerce').fillna(0).sum()
         else:
-            tot_ejec = tot_prog - tot_pend
+            tot_ejec = tot_prog - tot_pend_total
+            
+        # Desglosar pendientes basado en ESTADO (Columna O) según solicitud del usuario
+        pend_proceso = 0
+        pend_finalizado = 0
+        pend_agendamiento = 0
+        
+        if col_p_kpi and col_est_kpi:
+            df_kpi['_temp_est'] = df_kpi[col_est_kpi].astype(str).str.strip().str.upper()
+            df_kpi['_temp_pend'] = pd.to_numeric(df_kpi[col_p_kpi], errors='coerce').fillna(0)
+            
+            mask_proceso = df_kpi['_temp_est'].isin(['EN PROCESO', 'FINALIZADO'])
+            mask_final = df_kpi['_temp_est'] == 'FINALIZADO'
+            mask_agend = df_kpi['_temp_est'] == 'PENDIENTE AGENDAMIENTO'
+            
+            pend_proceso = df_kpi.loc[mask_proceso, '_temp_pend'].sum()
+            pend_finalizado = df_kpi.loc[mask_final, '_temp_pend'].sum()
+            pend_agendamiento = df_kpi.loc[mask_agend, '_temp_pend'].sum()
+            
+            # Asignar sobrantes no clasificados al proceso para cuadrar la suma total de pendientes
+            leftover = tot_pend_total - (pend_proceso + pend_agendamiento)
+            if leftover > 0: pend_proceso += leftover
+        else:
+            pend_proceso = tot_pend_total # Fallback
             
         tasa_ejec = (tot_ejec / tot_prog * 100) if tot_prog > 0 else 0
-        tasa_pend = (tot_pend / tot_prog * 100) if tot_prog > 0 else 0
 
         # Bloque CSS personalizado para estilizar st.button nativamente como kpi
         st.markdown("""
@@ -1112,12 +1136,24 @@ if df is not None:
             st.markdown(green_kpi_caption("↑✅", f"{int(tot_ejec)} Ejecutadas"), unsafe_allow_html=True)
 
         with kpi5:
-            st.button(f"Sesiones Pendientes\n{tasa_pend:.1f}%", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True)
-            # Rojo para pendientes como indicador de alerta ligera
+            st.button(f"Sesiones Pendientes en Proceso\n{int(pend_proceso)}", key="btn_pend", on_click=set_kpi, args=("pendientes",), use_container_width=True)
+            # Rojo/Naranja alerta ligera con el detalle extra solicitado
+            st.markdown('''
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: -5px; margin-bottom: 10px; gap: 4px;">
+                <div style="background-color: rgba(255, 43, 43, 0.1); color: #d60000; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                    ↑⏳ <span>''' + f"{int(tot_pend_total)} Pendientes" + '''</span>
+                </div>
+                <div style="color: #666; font-size: 0.75rem; font-weight: 500;">(finalizado son ''' + f"{int(pend_finalizado)}" + ''')</div>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+        with kpi6:
+            # Nuevo boton 6 para pendientes de agendamiento
+            st.button(f"Sesiones Pendientes de Agendamiento\n{int(pend_agendamiento)}", key="btn_pend_agend", on_click=set_kpi, args=("pendientes_agendamiento",), use_container_width=True)
             st.markdown('''
             <div style="display: flex; justify-content: center; margin-top: -5px; margin-bottom: 10px;">
-                <div style="background-color: rgba(255, 43, 43, 0.1); color: #d60000; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
-                    ↑⏳ <span>''' + f"{int(tot_pend)} Pendientes" + '''</span>
+                <div style="background-color: rgba(255, 152, 0, 0.1); color: #e65100; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                    ↑🗓️ <span>''' + f"{int(pend_agendamiento)} de Agendamiento" + '''</span>
                 </div>
             </div>
             ''', unsafe_allow_html=True)
