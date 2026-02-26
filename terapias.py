@@ -1613,9 +1613,10 @@ if df is not None:
                             # (agg_m ya creado arriba)
                         
                             base = alt.Chart(agg_m).encode(
-                                x=alt.X('ESPECIALIDAD', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
-                                y=alt.Y('Cantidad', title='Cantidad'),
-                                color=alt.Color('ESPECIALIDAD', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(range=['#2A4B7C', '#6C7A89', '#9A5B4B', '#4B6A50', '#826555', '#5D5065'])), 
+                                x=alt.X('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), axis=alt.Axis(labelAngle=0, labelFontSize=12, labelFontWeight="bold")),
+                                xOffset='ESPECIALIDAD:N',
+                                y=alt.Y('Cantidad:Q', title='Cantidad'),
+                                color=alt.Color('ESPECIALIDAD:N', legend=alt.Legend(orient='right', title='Tipo de Terapia'), scale=alt.Scale(range=['#2A4B7C', '#6C7A89', '#9A5B4B', '#4B6A50', '#826555', '#5D5065'])), 
                                 tooltip=[
                                     alt.Tooltip('Mes_Nombre', title='Mes'),
                                     alt.Tooltip('ESPECIALIDAD', title='Especialidad'),
@@ -1625,16 +1626,12 @@ if df is not None:
                         
                             bars = base.mark_bar().encode(opacity=alt.value(0.9))
                             text = base.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
-                                text=alt.Text('Cantidad')
+                                text=alt.Text('Cantidad:Q')
                             )
                         
                             final_chart = (bars + text).properties(
-                                width=alt.Step(40), 
                                 height=300
-                            ).facet(
-                                column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
-                                spacing=5 
-                            ).resolve_scale(y='shared') 
+                            )
                         
                             with st.container(height=450, border=True):
                                  st.altair_chart(final_chart, use_container_width=True)
@@ -1648,10 +1645,10 @@ if df is not None:
                                 agg_st = df_m.groupby(['Mes_Orden', 'Mes_Nombre', 'ESTADO']).size().reset_index(name='Cantidad')
                             
                                 base_st = alt.Chart(agg_st).encode(
-
-                                    x=alt.X('ESTADO', title=None, axis=alt.Axis(labelAngle=-90, labelLimit=80)), 
-                                    y=alt.Y('Cantidad', title='Cantidad'),
-                                    color=alt.Color('ESTADO', legend=alt.Legend(orient='right', title='Estado Gestión'), scale=alt.Scale(range=['#4A235A', '#6E2C00', '#145A32', '#1B4F72', '#78281F', '#4D5656'])), # Sober executive color scheme
+                                    x=alt.X('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), axis=alt.Axis(labelAngle=0, labelFontSize=12, labelFontWeight="bold")), 
+                                    xOffset='ESTADO:N',
+                                    y=alt.Y('Cantidad:Q', title='Cantidad'),
+                                    color=alt.Color('ESTADO:N', legend=alt.Legend(orient='right', title='Estado Gestión'), scale=alt.Scale(range=['#4A235A', '#6E2C00', '#145A32', '#1B4F72', '#78281F', '#4D5656'])), # Sober executive color scheme
                                     tooltip=[
                                         alt.Tooltip('Mes_Nombre', title='Mes'),
                                         alt.Tooltip('ESTADO', title='Estado'),
@@ -1661,16 +1658,12 @@ if df is not None:
                             
                                 bars_st = base_st.mark_bar().encode(opacity=alt.value(0.9))
                                 text_st = base_st.mark_text(dy=-10, color='black', fontSize=10, fontWeight='bold').encode(
-                                    text=alt.Text('Cantidad')
+                                    text=alt.Text('Cantidad:Q')
                                 )
                             
                                 final_chart_st = (bars_st + text_st).properties(
-                                    width=alt.Step(40), 
                                     height=300
-                                ).facet(
-                                    column=alt.Column('Mes_Nombre:O', title=None, sort=alt.SortField('Mes_Orden'), header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelFontSize=12, labelFontWeight="bold")), 
-                                    spacing=5 
-                                ).resolve_scale(y='shared') 
+                                )
                             
                                 with st.container(height=450, border=True):
                                      st.altair_chart(final_chart_st, use_container_width=True)
