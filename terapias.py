@@ -2193,7 +2193,13 @@ if df is not None:
             if not selected_columns:
                 selected_columns = all_columns
                 
-            df_display = df_final[selected_columns]
+            df_display = df_final[selected_columns].copy()
+            
+            # Ordenar por fecha cronológicamente si FECHA_CLAVE existe
+            if 'FECHA_CLAVE' in df_final.columns:
+                df_display['__temp_fecha'] = df_final['FECHA_CLAVE']
+                df_display = df_display.sort_values(by='__temp_fecha', ascending=True)
+                df_display = df_display.drop(columns=['__temp_fecha'])
 
             # Aplicamos el estilo si existe la columna ESTADO y fue seleccionada
             if 'ESTADO' in df_display.columns:
