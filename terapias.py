@@ -2224,6 +2224,7 @@ if df is not None:
                                 cant_sesiones = 0
                             
                             # Generar una fila por cada sesión teórica (1 hasta Cantidad)
+                            for i in range(1, cant_sesiones + 1):
                                 col_name = str(i)
                                 fecha_val = row.get(col_name, None)
                             
