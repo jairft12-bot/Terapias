@@ -2208,16 +2208,65 @@ if df is not None:
                 hide_index=True,
                 column_config=executive_config
             )
+            # --- Botón de Descarga Directa de la Tabla Principal (Excel Formateado) ---
+            import io
             
-            # --- Botón de Descarga Directa de la Tabla Principal (Vista Actual) ---
-            # Guardamos con separador punto y coma (;) y con BOM para que Excel en español detecte columnas y tildes automáticamente
-            csv = '\xef\xbb\xbf' + df_display.to_csv(index=False, sep=';')
+            # Crear un buffer en memoria para el archivo Excel
+            excel_buffer = io.BytesIO()
+            
+            with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                # Escribir el dataframe en la pestaña "Datos"
+                df_display.to_excel(writer, index=False, sheet_name='Datos_Filtrados')
+                
+                # Obtener el workbook y el worksheet object
+                workbook  = writer.book
+                worksheet = writer.sheets['Datos_Filtrados']
+                
+                # Definir formato de encabezado (Azul oscuro, letra blanca corrida, negrita, centrado)
+                header_format = workbook.add_format({
+                    'bg_color': '#1f497d', 
+                    'font_color': '#ffffff',
+                    'bold': True,
+                    'text_wrap': False,
+                    'valign': 'vcenter',
+                    'align': 'center',
+                    'border': 1
+                })
+                
+                # Definir formato de celda estándar con bordes y centrado
+                cell_format = workbook.add_format({
+                    'border': 1,
+                    'valign': 'vcenter'
+                })
+                
+                # Escribir los encabezados con su nuevo formato
+                for col_num, value in enumerate(df_display.columns.values):
+                    worksheet.write(0, col_num, value, header_format)
+                
+                # Auto-ajustar el ancho de las columnas iterando toda la data
+                for i, col in enumerate(df_display.columns):
+                    # Encontrar la longitud máxima en la columna (incluyendo el encabezado)
+                    column_len = max(
+                        df_display[col].astype(str).map(len).max(),
+                        len(str(col))
+                    ) + 2 # Añadir 2 de padding adicional
+                    
+                    # Evitar anchos exagerados
+                    if column_len > 40:
+                        column_len = 40
+                        
+                    # Aplicar ancho y formato a toda la columna (empezando desde fila 1 hacia abajo)
+                    worksheet.set_column(i, i, column_len, cell_format)
+            
+            # Obtener el valor del buffer
+            excel_data = excel_buffer.getvalue()
+
             st.download_button(
-                label="⬇️ Descargar Vista Actual (CSV)",
-                data=csv.encode('utf-8'),
-                file_name="terapias_filtradas.csv",
-                mime="text/csv",
-                help="Descarga exactamente las filas y columnas que estás viendo arriba"
+                label="📊 Descargar Vista Actual (Excel Formateado)",
+                data=excel_data,
+                file_name="Vista_Personalizada_Terapias.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Descarga exactamente las columnas de arriba en formato Excel (limpio y con colores)"
             )
 
     
