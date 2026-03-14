@@ -2262,7 +2262,7 @@ if df is not None:
             excel_data = excel_buffer.getvalue()
 
             st.download_button(
-                label="📊 Descargar Vista Actual (Excel Formateado)",
+                label="📗 Descargar Vista Actual",
                 data=excel_data,
                 file_name="Vista_Personalizada_Terapias.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
