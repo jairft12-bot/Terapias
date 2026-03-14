@@ -442,13 +442,17 @@ if df is not None:
             
             text = text.lower().strip()
             
+            # CASO 2: Verificar si ya viene en formato ISO estándar YYYY-MM-DD (por la limpieza previa)
+            if re.match(r'^\d{4}-\d{2}-\d{2}$', text):
+                return pd.to_datetime(text)
+            
             # Mapeo de meses español
             meses = {
                 'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
                 'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
             }
             
-            # CASO 2: Texto tipo "31-oct" (Regex estricto para evitar 'ene' en 'pendiente')
+            # CASO 3: Texto tipo "31-oct" (Regex estricto para evitar 'ene' en 'pendiente')
             target_month = None
             target_year = datetime.datetime.now().year # Default curr year
             
@@ -467,7 +471,7 @@ if df is not None:
                 # Devolvemos fecha ficticia
                 return datetime.datetime(target_year, target_month, 1)
             
-            # CASO 3: Parser Standard (dd/mm/yyyy etc)
+            # CASO 4: Parser Standard Fallback (dd/mm/yyyy etc)
             return pd.to_datetime(text, dayfirst=True)
             
         except:
