@@ -2165,6 +2165,11 @@ if df is not None:
                         if pd.isna(d):
                             return None
                         
+                        # Asegurar que sea tratada como fecha si viene como string 'YYYY-MM-DD'
+                        d = pd.to_datetime(d, errors='coerce')
+                        if pd.isna(d):
+                            return None
+                        
                         meses = {1:"ENE", 2:"FEB", 3:"MAR", 4:"ABR", 5:"MAY", 6:"JUN",
                                  7:"JUL", 8:"AGO", 9:"SEP", 10:"OCT", 11:"NOV", 12:"DIC"}
                         
