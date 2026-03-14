@@ -2242,6 +2242,8 @@ if df is not None:
                                             fecha_str = fecha_val
                                             estado_sesion = "ASISTIÓ (Texto)"
                             
+                                info = dict(base_info)
+                                info['N_SESION'] = i
                                 info['FECHA_SESION'] = fecha_str
                                 info['ESTADO_SESION'] = estado_sesion
                             
