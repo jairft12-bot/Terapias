@@ -2165,8 +2165,8 @@ if df is not None:
                         if pd.isna(d):
                             return None
                         
-                        meses = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO",
-                                 7:"JULIO", 8:"AGOSTO", 9:"SEPTIEMBRE", 10:"OCTUBRE", 11:"NOVIEMBRE", 12:"DICIEMBRE"}
+                        meses = {1:"ENE", 2:"FEB", 3:"MAR", 4:"ABR", 5:"MAY", 6:"JUN",
+                                 7:"JUL", 8:"AGO", 9:"SEP", 10:"OCT", 11:"NOV", 12:"DIC"}
                         
                         return f"{d.year}-{meses.get(d.month, '')}"
                     except:
@@ -2210,10 +2210,11 @@ if df is not None:
             )
             
             # --- Botón de Descarga Directa de la Tabla Principal (Vista Actual) ---
-            csv = df_display.to_csv(index=False).encode('utf-8')
+            # Guardamos con separador punto y coma (;) y con BOM para que Excel en español detecte columnas y tildes automáticamente
+            csv = '\xef\xbb\xbf' + df_display.to_csv(index=False, sep=';')
             st.download_button(
                 label="⬇️ Descargar Vista Actual (CSV)",
-                data=csv,
+                data=csv.encode('utf-8'),
                 file_name="terapias_filtradas.csv",
                 mime="text/csv",
                 help="Descarga exactamente las filas y columnas que estás viendo arriba"
