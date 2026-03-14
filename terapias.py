@@ -567,6 +567,18 @@ if df is not None:
         opciones_pacientes = ["Todos"] + sorted_patients
         filt_patient = st.selectbox("Seleccionar Paciente:", opciones_pacientes, index=0)
 
+        # 4. FILTRO DE PROGRAMAS (Columna I = Índice 8)
+        st.markdown("### 🏥 Filtro de Programas")
+        col_programa = df.columns[8] if df is not None and len(df.columns) > 8 else None
+        if col_programa and col_programa in df.columns:
+            raw_programas = df[col_programa].dropna().astype(str).str.strip().str.upper().unique()
+            sorted_programas = sorted([p for p in raw_programas if p not in ["NAN", "NONE", ""]])
+        else:
+            sorted_programas = []
+            
+        opciones_programas = ["Todos"] + sorted_programas
+        filt_programa = st.selectbox("Seleccionar Programa:", opciones_programas, index=0)
+
         # 4. CONTROLES DE ACTUALIZACIÓN (Solo JAIR - Local)
         if IS_LOCAL:
             st.divider()
@@ -664,7 +676,7 @@ if df is not None:
     tab_map = all_tabs[4]
     
     # Check si hay algun filtro activo
-    filter_active = not (filt_year == "Todos" and filt_month_name == "Todos" and filt_patient == "Todos")
+    filter_active = not (filt_year == "Todos" and filt_month_name == "Todos" and filt_patient == "Todos" and filt_programa == "Todos")
 
     # --- FILTRADO STRICTO (GLOBAL) ---
     # MODIFICADO JAIR: Mantenemos df_base intacto (con filas vacías y todo)
@@ -705,6 +717,10 @@ if df is not None:
 
         if filt_patient != "Todos":
             mask_final = mask_final & (df_base['PACIENTES'].astype(str).str.strip().str.upper() == filt_patient)
+            
+        col_programa_base = df_base.columns[8] if len(df_base.columns) > 8 else None
+        if filt_programa != "Todos" and col_programa_base and col_programa_base in df_base.columns:
+            mask_final = mask_final & (df_base[col_programa_base].astype(str).str.strip().str.upper() == filt_programa)
              
         df_final = df_base[mask_final].copy()
     else:
