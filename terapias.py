@@ -2157,32 +2157,31 @@ if df is not None:
             
                 return '' # Neutro
 
-            # --- Neva Columna: PERIODO - PACIENTE ---
-            if 'FECHA_CLAVE' in df_final.columns and 'PACIENTES' in df_final.columns:
-                def format_period_patient(row):
+            # --- Nueva Columna: PERIODO ---
+            if 'FECHA_CLAVE' in df_final.columns:
+                def format_periodo(row):
                     try:
                         d = row['FECHA_CLAVE']
-                        p = str(row['PACIENTES']).strip().upper()
-                        if pd.isna(d) or p == "NAN" or not p:
+                        if pd.isna(d):
                             return None
                         
                         meses = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO",
                                  7:"JULIO", 8:"AGOSTO", 9:"SEPTIEMBRE", 10:"OCTUBRE", 11:"NOVIEMBRE", 12:"DICIEMBRE"}
                         
-                        return f"{d.year} {meses.get(d.month, '')} {p}".strip()
+                        return f"{d.year}-{meses.get(d.month, '')}"
                     except:
                         return None
                         
-                df_final.insert(0, 'PERIODO-PACIENTE', df_final.apply(format_period_patient, axis=1))
+                df_final.insert(0, 'PERIODO', df_final.apply(format_periodo, axis=1))
                 
                 # Configurar columna agregada
-                executive_config["PERIODO-PACIENTE"] = st.column_config.TextColumn("Periodo - Paciente", width="medium", help="Año Mes y Nombre del Paciente")
+                executive_config["PERIODO"] = st.column_config.TextColumn("Periodo", width="small", help="Año y Mes")
 
             # --- Selector de Columnas a Mostrar / Descargar ---
             st.markdown("### 🎛️ Vista Personalizada")
             all_columns = df_final.columns.tolist()
             # Columnas por defecto (las más importantes)
-            default_cols = [c for c in ['PERIODO-PACIENTE', 'PACIENTES', 'ESPECIALIDAD', 'PROGRAMAS', 'CANT.', 'ESTADO', 'CLINICA'] if c in all_columns]
+            default_cols = [c for c in ['PERIODO', 'PACIENTES', 'ESPECIALIDAD', 'PROGRAMAS', 'CANT.', 'ESTADO', 'CLINICA'] if c in all_columns]
             
             selected_columns = st.multiselect(
                 "Selecciona las columnas que deseas visualizar y descargar:",
