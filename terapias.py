@@ -2153,18 +2153,46 @@ if df is not None:
             
                 return '' # Neutro
 
-            # Aplicamos el estilo si existe la columna ESTADO
-            if 'ESTADO' in df_final.columns:
-                styled_df = df_final.style.map(color_kpi_status, subset=['ESTADO'])
-            else:
-                styled_df = df_final
+            # --- Selector de Columnas a Mostrar / Descargar ---
+            st.markdown("### 🎛️ Vista Personalizada")
+            all_columns = df_final.columns.tolist()
+            # Columnas por defecto (las más importantes)
+            default_cols = [c for c in ['PACIENTES', 'ESPECIALIDAD', 'PROGRAMAS', 'CANT.', 'ESTADO', 'CLINICA'] if c in all_columns]
+            
+            selected_columns = st.multiselect(
+                "Selecciona las columnas que deseas visualizar y descargar:",
+                options=all_columns,
+                default=default_cols if default_cols else all_columns
+            )
+            
+            # Si el usuario borra todo, mostrar todo por seguridad
+            if not selected_columns:
+                selected_columns = all_columns
+                
+            df_display = df_final[selected_columns]
 
-            # Tabla de solo lectura - Respetando filtros y estilos
+            # Aplicamos el estilo si existe la columna ESTADO y fue seleccionada
+            if 'ESTADO' in df_display.columns:
+                styled_df = df_display.style.map(color_kpi_status, subset=['ESTADO'])
+            else:
+                styled_df = df_display
+
+            # Tabla interactiva - Respetando filtros y estilos
             st.dataframe(
                 styled_df, 
                 use_container_width=True, 
                 hide_index=True,
                 column_config=executive_config
+            )
+            
+            # --- Botón de Descarga Directa de la Tabla Principal (Vista Actual) ---
+            csv = df_display.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="⬇️ Descargar Vista Actual (CSV)",
+                data=csv,
+                file_name="terapias_filtradas.csv",
+                mime="text/csv",
+                help="Descarga exactamente las filas y columnas que estás viendo arriba"
             )
 
     
