@@ -349,6 +349,10 @@ def load_data(force_web=False):
             except Exception as e:
                 error_msg = f"{error_msg} | Local falló: {str(e)}"
 
+    # --- LIMPIEZA GLOBAL DE FECHA OM PARA QUITAR HORA ---
+    if df is not None and 'FECHA OM' in df.columns:
+        df['FECHA OM'] = pd.to_datetime(df['FECHA OM'], errors='coerce').dt.strftime('%Y-%m-%d').fillna(df['FECHA OM'])
+
     now_local = datetime.datetime.now() - datetime.timedelta(hours=5)
     timestamp = now_local.strftime('%H:%M:%S')
     return df, error_msg, timestamp, data_source
