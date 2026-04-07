@@ -298,34 +298,53 @@ def load_data(force_web=False):
         if df is not None: break
         
         if metodo == "web":
-            try:
-                # Cache Busting Nuclear v3: Random string + multiple timestamps
-                import random
-                rand_id = random.randint(1000, 9999)
-                t_ms = int(time.time() * 1000)
-                # JAIR: SharePoint a veces demora. Forzamos descarga limpia.
-                dynamic_url = f"{DATA_URL}&t={t_ms}&r={rand_id}&download_fresh=1"
-                
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/110.0.0.0',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0, post-check=0, pre-check=0', 
-                    'Pragma': 'no-cache', 
-                    'Expires': '0',
-                    'DNT': '1'
-                }
-                
-                # Usar timeout más largo para SharePoint pero con reintentos? No, simple.
-                response = requests.get(dynamic_url, headers=headers, verify=False, timeout=15)
-                
-                if response.status_code == 200:
-                    df = pd.read_excel(io.BytesIO(response.content), sheet_name=SHEET_NAME, engine='openpyxl')
-                    df.columns = df.columns.astype(str).str.upper().str.strip()
-                    df = df.map(lambda x: x.strip().upper() if isinstance(x, str) else x)
-                    data_source = "🌐 SharePoint (Nube)"
-                else:
-                    error_msg = f"Web falló ({response.status_code})"
-            except Exception as e:
-                error_msg = f"Web falló: {str(e)}"
+            import random
+            max_retries = 4
+            base_delay = 2
+            
+            for attempt in range(max_retries):
+                try:
+                    rand_id = random.randint(1000, 9999)
+                    t_ms = int(time.time() * 1000)
+                    dynamic_url = f"{DATA_URL}&t={t_ms}&r={rand_id}&download_fresh={attempt}"
+                    
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/110.0.0.0',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0, post-check=0, pre-check=0', 
+                        'Pragma': 'no-cache', 
+                        'Expires': '0',
+                        'DNT': '1'
+                    }
+                    
+                    response = requests.get(dynamic_url, headers=headers, verify=False, timeout=20)
+                    
+                    if response.status_code == 200:
+                        df = pd.read_excel(io.BytesIO(response.content), sheet_name=SHEET_NAME, engine='openpyxl')
+                        df.columns = df.columns.astype(str).str.upper().str.strip()
+                        df = df.map(lambda x: x.strip().upper() if isinstance(x, str) else x)
+                        data_source = "🌐 SharePoint (Nube)"
+                        error_msg = None
+                        break
+                    elif response.status_code == 429:
+                        if attempt < max_retries - 1:
+                            retry_after = response.headers.get("Retry-After")
+                            if retry_after and retry_after.isdigit():
+                                delay = int(retry_after)
+                            else:
+                                delay = base_delay * (2 ** attempt)
+                            time.sleep(delay)
+                        else:
+                            error_msg = f"Web falló (429 - Too Many Requests). Servidor saturado."
+                    else:
+                        error_msg = f"Web falló ({response.status_code})"
+                        # Solo reintentar si es 429 o hay excepción (timeout, etc.)
+                        break
+                except Exception as e:
+                    error_msg = f"Web falló: {str(e)}"
+                    if attempt < max_retries - 1:
+                        time.sleep(base_delay * (2 ** attempt))
+                    else:
+                        break
                 
         elif metodo == "local":
             try:
